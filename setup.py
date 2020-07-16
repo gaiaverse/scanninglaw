@@ -57,10 +57,9 @@ class InstallCommand(install):
         install.run(self)
 
 
-def fetch_cog_ii():
-    import selectionfunctions.cog_ii
-    selectionfunctions.cog_ii.fetch()
-
+def fetch_cogi_2020():
+    import scanninglaw.cog_i
+    scanninglaw.cog_i.fetch()
 
 class FetchCommand(distutils.cmd.Command):
     description = ('Fetch selection functions from the web, and store them in the data '
@@ -69,7 +68,7 @@ class FetchCommand(distutils.cmd.Command):
         ('map-name=', None, 'Which selection functions to load.')]
 
     map_funcs = {
-        'cog_ii': fetch_cog_ii,
+        'cogi_2020': fetch_cogi_2020,
     }
 
     def initialize_options(self):
@@ -77,9 +76,9 @@ class FetchCommand(distutils.cmd.Command):
 
     def finalize_options(self):
         try:
-            import selectionfunctions
+            import scanninglaw
         except ImportError:
-            print('You must install the package selectionfunctions before running the '
+            print('You must install the package scanninglaw before running the '
                   'fetch command.')
         if not self.map_name in self.map_funcs:
             print('Valid map names are: {}'.format(self.map_funcs.keys()))
@@ -95,7 +94,7 @@ def readme():
 
 
 setup(
-    name='selectionfunctions',
+    name='scanninglaw',
     version='0.2.0',
     description='Uniform interface for the selection functions of astronomical surveys.',
     long_description=readme(),
@@ -105,7 +104,7 @@ setup(
     author='Douglas Boubert',
     author_email='douglasboubert@gmail.com',
     license='GPLv2',
-    packages=['selectionfunctions'],
+    packages=['scanninglaw'],
     install_requires=[
         'numpy',
         'scipy',
