@@ -37,6 +37,8 @@ import hashlib
 import json
 import os
 import os.path
+import gzip
+import shutil
 
 from progressbar import ProgressBar, UnknownLength
 from progressbar.widgets import DataSize, AdaptiveTransferSpeed, Bar, \
@@ -297,6 +299,14 @@ def download_and_verify(url, md5sum, fname=None,
         raise DownloadError('The MD5 sum of the downloaded file is incorrect.\n'
                             + '  download: {}\n'.format(sig.hexdigest())
                             + '  expected: {}\n'.format(md5sum))
+
+
+    if fname.endswith('.gz'):
+        fname_zip = fname; fname = fname_zip[:-3]
+        with gzip.open(fname_zip, 'rb') as f_in:
+            with open(fname, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(fname_zip)
 
     return fname
 

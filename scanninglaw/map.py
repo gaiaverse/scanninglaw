@@ -107,7 +107,7 @@ def ensure_coord_type(f):
     """
     @wraps(f)
     def _wrapper_func(self, sources, **kwargs):
-        if not isinstance(sources, Source):
+        if not isinstance(sources, Source)|isinstance(sources, coordinates.SkyCoord):
             raise TypeError('`sources` must be a selectionfunctions.Source object.')
         return f(self, sources, **kwargs)
     return _wrapper_func
@@ -469,10 +469,10 @@ def web_api_method(url,
 
 
 
-class SelectionFunction(object):
+class ScanningLaw(object):
     """
-    Base class for querying selectionfunctions. For each individual selection function, a different
-    subclass should be written, implementing the :obj:`query()` function.
+    Base class for querying scanning law.
+    For each individual scanning law, a different subclass should be written, implementing the :obj:`query()` function.
     """
 
     def __init__(self):
@@ -481,13 +481,13 @@ class SelectionFunction(object):
     @ensure_coord_type
     def __call__(self, coords, **kwargs):
         """
-        An alias for :obj:`SelectionFunction.query`.
+        An alias for :obj:`ScanningLaw.query`.
         """
         return self.query(coords, **kwargs)
 
     def query(self, coords, **kwargs):
         """
-        Query the selection function at a set of coordinates.
+        Query the scanning law at a set of coordinates.
 
         Args:
             coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates at which to
@@ -586,10 +586,10 @@ class SelectionFunction(object):
         return self.query(coords, **kwargs)
 
 
-class WebSelectionFunction(object):
+class WebScanningLaw(object):
     """
-    Base class for querying selection functions through a web API. For each individual
-    selection functions, a different subclass should be written, specifying the base URL.
+    Base class for querying scanning law through a web API. For each individual
+    scanning law, a different subclass should be written, specifying the base URL.
     """
 
     def __init__(self, api_url=None, map_name=''):
