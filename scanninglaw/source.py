@@ -33,7 +33,7 @@ class Photometry():
         self.error = {k:v for k,v in photometry_error.items()} if photometry_error is not None else None
 
 class Source():
-    def __init__(self,photometry=None,photometry_error=None,*args,**kwargs):
+    def __init__(self,*args,photometry=None,photometry_error=None,**kwargs):
         self.coord = coordinates.SkyCoord(*args,**kwargs)
         self.photometry = Photometry(photometry,photometry_error) if photometry is not None else None
 
