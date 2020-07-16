@@ -107,7 +107,7 @@ def ensure_coord_type(f):
     """
     @wraps(f)
     def _wrapper_func(self, sources, **kwargs):
-        if not isinstance(sources, Source):
+        if not isinstance(sources, Source)|isinstance(sources, coordinates.SkyCoord):
             raise TypeError('`sources` must be a selectionfunctions.Source object.')
         return f(self, sources, **kwargs)
     return _wrapper_func
@@ -481,13 +481,13 @@ class ScanningLaw(object):
     @ensure_coord_type
     def __call__(self, coords, **kwargs):
         """
-        An alias for :obj:`SelectionFunction.query`.
+        An alias for :obj:`ScanningLaw.query`.
         """
         return self.query(coords, **kwargs)
 
     def query(self, coords, **kwargs):
         """
-        Query the selection function at a set of coordinates.
+        Query the scanning law at a set of coordinates.
 
         Args:
             coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates at which to

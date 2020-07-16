@@ -26,55 +26,91 @@ from __future__ import print_function, division
 import os
 import h5py
 import numpy as np
+import tqdm
 
 import astropy.coordinates as coordinates
 import astropy.units as units
-import h5py
+import pandas as pd
 import healpy as hp
-from scipy import interpolate, special
+from scipy import interpolate, special, spatial
 
 from .std_paths import *
 from .map import ScanningLaw, ensure_flat_icrs, coord2healpix
-from .source import ensure_gaia_g
+from .source import ensure_gaia_g, Source
 from . import fetch_utils
 
 from time import time
 
 
-class dr2_sf(ScanningLaw):
+class dr2_sl(ScanningLaw):
     """
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, version='modelAB', crowding=False, bounds=True):
+    def __init__(self, map_fname=None, version='cogi_2020', test=False):
         """
         Args:
-            map_fname (Optional[:obj:`str`]): Filename of the BoubertEverall2019 selection function. Defaults to
+            map_fname (Optional[:obj:`str`]): Filename of the Boubert,Everall,Holl 2020 scanning law. Defaults to
                 :obj:`None`, meaning that the default location is used.
-            version (Optional[:obj:`str`]): The selection function version to download. Valid versions
-                are :obj:`'modelT'` and :obj:`'modelAB'`
-                Defaults to :obj:`'modelT'`.
-            crowding (Optional[:obj:`bool`]): Whether or not the selection function includes crowding.
-                Defaults to :obj:`'False'`.
-            bounds (Optional[:obj:`bool`]): Whether or not the selection function is bounded to 0.0 < G < 25.0.
-                Defaults to :obj:`'True'`.
+            version (Optional[:obj:`str`]): The scanning law version to download. Valid versions
+                are :obj:`'cogi_2020'`
+                Defaults to :obj:`'cogi_2020'`.
         """
 
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'cog_ii', 'cog_ii_dr2.h5')
+            map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
 
         t_start = time()
 
-        with h5py.File(map_fname, 'r') as f:
-            # Load auxilliary data
-            print('Loading auxilliary data ...')
+        # Load auxilliary data
+        print('Loading auxilliary data ...')
+        ##### Load in scanning law
+        _columns = ['JulianDayNumberRefEpoch2010TCB@Gaia', 'JulianDayNumberRefEpoch2010TCB@Barycentre_1', 'JulianDayNumberRefEpoch2010TCB@Barycentre_2',
+                    'ra_FOV_1(deg)', 'dec_FOV_1(deg)', 'scanPositionAngle_FOV_1(deg)', 'ra_FOV_2(deg)', 'dec_FOV_2(deg)', 'scanPositionAngle_FOV_2(deg)']
+        if test: _data = pd.read_csv(map_fname, usecols=_columns, nrows=1000000)
+        else: _data = pd.read_csv(map_fname, usecols=_columns)
+        _keys = ['tcb_at_gaia','tcb_at_bary1','tcb_at_bary2','ra_fov_1','dec_fov_1','angle_fov_1','ra_fov_2','dec_fov_2','angle_fov_2']
+        _box = {}
+        for j,k in zip(_columns,_keys):
+            _box[k] = _data[j].values
+        _box['scan_idx'] = np.arange(len(_box['ra_fov_1']))
 
+        t_auxilliary = time()
 
-            t_auxilliary = time()
+        # Compute 3D spherical projections
+        self.xyz_fov_1 = np.stack([np.cos(np.deg2rad(_box['ra_fov_1']))*np.cos(np.deg2rad(_box['dec_fov_1'])),
+                              np.sin(np.deg2rad(_box['ra_fov_1']))*np.cos(np.deg2rad(_box['dec_fov_1'])),
+                              np.sin(np.deg2rad(_box['dec_fov_1']))]).T
+        self.xyz_fov_2 = np.stack([np.cos(np.deg2rad(_box['ra_fov_2']))*np.cos(np.deg2rad(_box['dec_fov_2'])),
+                              np.sin(np.deg2rad(_box['ra_fov_2']))*np.cos(np.deg2rad(_box['dec_fov_2'])),
+                              np.sin(np.deg2rad(_box['dec_fov_2']))]).T
+        ##### Compute rotation matrices
+        _xaxis = self.xyz_fov_1
+        _zaxis = np.cross(self.xyz_fov_1,self.xyz_fov_2)
+        _yaxis = -np.cross(_xaxis,_zaxis)
+        _yaxis /= np.linalg.norm(_yaxis,axis=1)[:,np.newaxis]
+        _zaxis /= np.linalg.norm(_zaxis,axis=1)[:,np.newaxis]
+        _uaxis = np.array([1,0,0])
+        _vaxis = np.array([0,1,0])
+        _waxis = np.array([0,0,1])
+        self._matrix = np.moveaxis(np.stack((_xaxis, _yaxis, _zaxis)), 1,0)
 
+        self.tcb_at_gaia = _box['tcb_at_gaia'].copy()
 
-            t_sf = time()
+        t_sf = time()
 
+        # Gaia FoV parameters
+        self.t_diff = 1/24 # 1 hours
+        self.r_search = np.tan(np.deg2rad(0.35*np.sqrt(2)))
+        b_fov = 0.35
+        zeta_origin_1 = +221/3600
+        zeta_origin_2 = -221/3600
+        self.b_upp_1 = b_fov+zeta_origin_1
+        self.b_low_1 = -b_fov+zeta_origin_1
+        self.b_upp_2 = b_fov+zeta_origin_2
+        self.b_low_2 = -b_fov+zeta_origin_2
+        self.l_fov_1 = 0.0
+        self.l_fov_2 = 106.5
 
         t_interpolator = time()
 
@@ -85,72 +121,114 @@ class dr2_sf(ScanningLaw):
         print('          sf: {: >7.3f} s'.format(t_sf-t_auxilliary))
         print('interpolator: {: >7.3f} s'.format(t_interpolator-t_sf))
 
-    def _scanning_law(self,_n,_parameters):
+    def linearbisect(self, xyz_obj, xyz_line, tgaia_line):
+
+        _d_line = xyz_line[1]-xyz_line[0]
+        _d_obj = xyz_obj-xyz_line[0]
+        _line_sqlen = np.sum((_d_line)**2)
+
+        _d_tobs = (tgaia_line[1]-tgaia_line[0]) * np.sum(_d_line * _d_obj, axis=1) / _line_sqlen
+
+        return tgaia_line[0]+_d_tobs
+
+    def _scanning_law(self, xyz_source):
+
+        nsource = xyz_source.shape[0]
+        t_previous = -99999*np.ones(nsource)
+        t_box = {i:[] for i in range(nsource)}
+        idx_box = {i:[] for i in range(nsource)}
+
+        tgaia_fov1 = [[] for i in range(nsource)]
+        tgaia_fov2 = [[] for i in range(nsource)]
+        nscan_fov1 = [0 for i in range(nsource)]
+        nscan_fov2 = [0 for i in range(nsource)]
+
+        tree_source = spatial.cKDTree(xyz_source)
+
+        # Iterate through scanning time steps
+        for _tidx in tqdm.tqdm_notebook(range(0,self.xyz_fov_1.shape[0])):
+            _t_now = self.tcb_at_gaia[_tidx]
+            # Find all sources in scan window
+            _in_fov = tree_source.query_ball_point([self.xyz_fov_1[_tidx].copy(order='C'),
+                                                    self.xyz_fov_2[_tidx].copy(order='C')],self.r_search)
+            n_fov1 = len(_in_fov[0])
+            _in_fov = _in_fov[0]+_in_fov[1]
+            if len(_in_fov) == 0:
+                continue
+
+            # xyz coordinates of sources
+            _xyz = xyz_source[_in_fov]
+            _uvw = np.einsum('ij,nj->ni',self._matrix[_tidx],_xyz)
+
+            _l = np.rad2deg(np.arctan2(_uvw[:,1],_uvw[:,0]))
+            _b = np.rad2deg(np.arctan2(_uvw[:,2],np.sqrt(_uvw[:,0]**2.0+_uvw[:,1]**2.0)))
+
+            condition = (((np.abs(_l-self.l_fov_1)<1.0)&(_b<self.b_upp_1)&(_b>self.b_low_1))\
+                               |((np.abs(_l-self.l_fov_2)<1.0)&(_b<self.b_upp_2)&(_b>self.b_low_2)))\
+                              &(_t_now-t_previous[_in_fov]>self.t_diff)
+            _where = np.where(condition)[0]
+            _valid = np.array(_in_fov,dtype=np.int)[_where]
+            n_fov1 = np.sum(condition[:n_fov1]);
+
+            t_previous[_valid] = _t_now
+
+            if len(_valid)>0:
+                tcbgaia_fov1 = self.linearbisect(_xyz[_where[:n_fov1]], self.xyz_fov_1[max(0,_tidx-1):_tidx+2][:2], self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
+                tcbgaia_fov2 = self.linearbisect(_xyz[_where[n_fov1:]], self.xyz_fov_2[max(0,_tidx-1):_tidx+2][:2], self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
+                for ii in range(n_fov1):
+                    _sidx = _valid[ii]
+                    tgaia_fov1[_sidx].append(tcbgaia_fov1[ii])
+                    nscan_fov1[_sidx] += 1
+                for ii in range(len(_valid)-n_fov1):
+                    _sidx = _valid[ii+n_fov1]
+                    tgaia_fov2[_sidx].append(tcbgaia_fov2[ii])
+                    nscan_fov2[_sidx] += 1
+
+        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
 
 
-
-        return _result
-
-
-    @ensure_flat_icrs
-    @ensure_gaia_g
+    #@ensure_flat_icrs
     def query(self, sources):
         """
         Returns the selection function at the requested coordinates.
 
         Args:
-            coords (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
+            sources (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
+                    (:obj:`scanninglaw.source.Source`): The coordinates to query.
 
         Returns:
-            Selection function at the specified coordinates, as a fraction.
+            (:obj:`dict`): Observation times of each object by each FoV. Number of observations of each object by each FoV
 
         """
 
-        # Convert coordinates to healpix indices
-        hpxidx = coord2healpix(sources.coord, 'icrs', self._nside, nest=True)
+        if type(sources) == Source: coords = sources.coord.transform_to('icrs')
+        else: coords = sources.transform_to('icrs')
 
-        # Calculate the number of observations of each source
-        n = self._n_field[hpxidx]
-
-        # Extract Gaia G magnitude
-        G = sources.photometry.measurement['gaia_g']
-
-        if self._crowding == True:
-
-            # Work out HEALPix index in crowding nside
-            hpxidx_crowding = np.floor(hpxidx * hp.nside2npix(self._nside_crowding) / hp.nside2npix(self._nside)).astype(np.int)
-
-            # Calculate the local density field at each source
-            log10_rho = self._log10_rho_field[hpxidx_crowding]
-
-            # Calculate parameters
-            sf_parameters = self._interpolator(log10_rho,G)
-
+        if type(coords.ra.deg)==np.ndarray:
+            coord_shape = coords.ra.deg.shape
+            radec_source = np.stack((coords.ra.deg.flatten(), coords.dec.deg.flatten())).T
         else:
+            coord_shape = None
+            radec_source = np.array([[coords.ra.deg],[coords.dec.deg]]).T
 
-            # Calculate parameters
-            sf_parameters = self._interpolator(G)
+        ##### Compute tree
+        xyz_source = np.stack([np.cos(np.deg2rad(radec_source[:,0]))*np.cos(np.deg2rad(radec_source[:,1])),
+                               np.sin(np.deg2rad(radec_source[:,0]))*np.cos(np.deg2rad(radec_source[:,1])),
+                               np.sin(np.deg2rad(radec_source[:,1]))]).T
 
         # Evaluate selection function
-        selection_function = self._selection_function(n,sf_parameters)
+        tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law(xyz_source)
 
-        if self._bounds == True:
-            _outside_bounds = np.where( (G<self._g_min) | (G>self._g_max) )
-            selection_function[_outside_bounds] = 0.0
-
-        return selection_function
+        return {'tgaia_fov1':tgaia_fov1, 'tgaia_fov2':tgaia_fov2, 'nscan_fov1':nscan_fov1, 'nscan_fov2':nscan_fov2, 'shape':coord_shape}
 
 
-def fetch():
+def fetch(version='cogi_2020'):
     """
-    Downloads the specified version of the Bayestar dust map.
+    Downloads the specified version of the Gaia DR2 scanning law.
 
     Args:
         version (Optional[:obj:`str`]): The map version to download. Valid versions are
-            :obj:`'bayestar2019'` (Green, Schlafly, Finkbeiner et al. 2019),
-            :obj:`'bayestar2017'` (Green, Schlafly, Finkbeiner et al. 2018) and
-            :obj:`'bayestar2015'` (Green, Schlafly, Finkbeiner et al. 2015). Defaults
-            to :obj:`'bayestar2019'`.
+            :obj:`'cogi_2020'` (Boubert, Everall & Holl 2020)
 
     Raises:
         :obj:`ValueError`: The requested version of the map does not exist.
@@ -162,11 +240,23 @@ def fetch():
             was a problem connecting to the Dataverse.
     """
 
-    doi = '10.7910/DVN/OFRA78'
+    doi = {
+        'cogi_2020': '10.7910/DVN/OFRA78'
+    }
+    # Raise an error if the specified version of the map does not exist
+    try:
+        doi = doi[version]
+    except KeyError as err:
+        raise ValueError('Version "{}" does not exist. Valid versions are: {}'.format(
+            version,
+            ', '.join(['"{}"'.format(k) for k in doi.keys()])
+        ))
 
-    requirements = {'filename': 'cog_dr2_scanning_law_v1.csv.gz'}
+    requirements = {
+        'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'}
+    }[version]
 
-    local_fname = os.path.join(data_dir(), 'cog_i', 'cog_dr2_scanning_law_v1.csv.gz')
+    local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
 
     # Download the data
     fetch_utils.dataverse_download_doi(
