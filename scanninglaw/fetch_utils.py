@@ -227,12 +227,16 @@ def download_and_verify(url, md5sum, fname=None,
         fname = url.split('/')[-1]
 
     # Check if the file already exists on disk
-    if (not clobber) and os.path.isfile(fname):
+    if fname.endswith('.gz'): fname_unzipped=fname[:-3]
+    else: fname_unzipped=fname
+
+    # Check if the file already exists on disk
+    if (not clobber) and os.path.isfile(fname_unzipped):
         print('Checking existing file to see if MD5 sum matches ...')
-        md5_existing = get_md5sum(fname, chunk_size=chunk_size)
+        md5_existing = get_md5sum(fname_unzipped, chunk_size=chunk_size)
         if md5_existing == md5sum:
             print('File exists. Not overwriting.')
-            return fname
+            return fname_unzipped
 
     # Make sure the directory it's going into exists
     dir_name = os.path.dirname(fname)
@@ -420,9 +424,12 @@ def dataverse_download_doi(doi,
                 local_fname = file_metadata['dataFile']['filename']
 
             # Check if the file already exists on disk
-            if (not clobber) and os.path.isfile(local_fname):
+            if local_fname.endswith('.gz'): local_fname_unzipped=local_fname[:-3]
+            else: local_fname_unzipped=local_fname
+
+            if (not clobber) and os.path.isfile(local_fname_unzipped):
                 print('Checking existing file to see if MD5 sum matches ...')
-                md5_existing = get_md5sum(local_fname)
+                md5_existing = get_md5sum(local_fname_unzipped)
                 if md5_existing == md5sum:
                     print('File exists. Not overwriting.')
                     return
