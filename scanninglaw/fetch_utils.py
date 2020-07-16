@@ -298,6 +298,7 @@ def download_and_verify(url, md5sum, fname=None,
                             + '  download: {}\n'.format(sig.hexdigest())
                             + '  expected: {}\n'.format(md5sum))
 
+
     return fname
 
 

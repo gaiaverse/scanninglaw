@@ -469,10 +469,10 @@ def web_api_method(url,
 
 
 
-class SelectionFunction(object):
+class ScanningLaw(object):
     """
-    Base class for querying selectionfunctions. For each individual selection function, a different
-    subclass should be written, implementing the :obj:`query()` function.
+    Base class for querying scanning law.
+    For each individual scanning law, a different subclass should be written, implementing the :obj:`query()` function.
     """
 
     def __init__(self):
@@ -586,10 +586,10 @@ class SelectionFunction(object):
         return self.query(coords, **kwargs)
 
 
-class WebSelectionFunction(object):
+class WebScanningLaw(object):
     """
-    Base class for querying selection functions through a web API. For each individual
-    selection functions, a different subclass should be written, specifying the base URL.
+    Base class for querying scanning law through a web API. For each individual
+    scanning law, a different subclass should be written, specifying the base URL.
     """
 
     def __init__(self, api_url=None, map_name=''):
