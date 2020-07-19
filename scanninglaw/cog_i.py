@@ -112,6 +112,9 @@ class dr2_sl(ScanningLaw):
         self.l_fov_1 = 0.0
         self.l_fov_2 = 106.5
 
+        self.tree_fov1 = spatial.cKDTree(self.xyz_fov_1)
+        self.tree_fov2 = spatial.cKDTree(self.xyz_fov_2)
+
         t_interpolator = time()
 
         t_finish = time()
@@ -132,6 +135,8 @@ class dr2_sl(ScanningLaw):
         return tgaia_line[0]+_d_tobs
 
     def _scanning_law(self, xyz_source):
+
+        # Run this code for large numbers of sources (5 million +)
 
         nsource = xyz_source.shape[0]
         t_previous = -99999*np.ones(nsource)
@@ -186,6 +191,66 @@ class dr2_sl(ScanningLaw):
 
         return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
 
+    def _scanning_law_inverse(self, xyz_source):
+
+        # Run this code for small numbers of sources (less than 5 million)
+
+        nsource = xyz_source.shape[0]
+        t_previous = -99999*np.ones(nsource)
+        t_box = {i:[] for i in range(nsource)}
+        idx_box = {i:[] for i in range(nsource)}
+
+        tgaia_fov1 = [[] for i in range(nsource)]
+        tgaia_fov2 = [[] for i in range(nsource)]
+        nscan_fov1 = [0 for i in range(nsource)]
+        nscan_fov2 = [0 for i in range(nsource)]
+
+        # Iterate through scanning time steps
+        for _sidx in tqdm.tqdm_notebook(range(0,xyz_source.shape[0])):
+            # Find all sources in scan window
+            _in_fov1 = np.sort(self.tree_fov1.query_ball_point(xyz_source[_sidx].copy(order='C'), self.r_search))
+            _in_fov2 = np.sort(self.tree_fov2.query_ball_point(xyz_source[_sidx].copy(order='C'), self.r_search))
+            n_fov1 = len(_in_fov1)
+            _in_fov = np.append(_in_fov1,_in_fov2).astype(int)
+            if len(_in_fov)==0:
+                continue
+
+            # xyz coordinates of sources
+            _xyz = xyz_source[_sidx]
+            _uvw = np.einsum('ikj,j->ik',self._matrix[_in_fov],_xyz)
+
+            _l = np.rad2deg(np.arctan2(_uvw[:,1],_uvw[:,0]))
+            _b = np.rad2deg(np.arctan2(_uvw[:,2],np.sqrt(_uvw[:,0]**2.0+_uvw[:,1]**2.0)))
+
+            # Test whether observations lie on an FoV.
+            condition = (((np.abs(_l-self.l_fov_1)<1.0)&(_b<self.b_upp_1)&(_b>self.b_low_1))\
+                               |((np.abs(_l-self.l_fov_2)<1.0)&(_b<self.b_upp_2)&(_b>self.b_low_2)))
+            _in_fov = np.array(_in_fov)[condition]
+
+            n_fov2 = np.sum(condition[n_fov1:])
+            n_fov1 = np.sum(condition[:n_fov1])
+
+            if n_fov1>0:
+                condition_fov1 = self.tcb_at_gaia[_in_fov[:n_fov1]][1:] - self.tcb_at_gaia[_in_fov[:n_fov1]][:-1] > self.t_diff
+                condition_fov1 = np.insert(condition_fov1, 0, True)
+
+                _tidx_fov1 = np.vstack((_in_fov[:n_fov1][condition_fov1]-1, _in_fov[:n_fov1][condition_fov1]))
+                _tidx_fov1.T[_tidx_fov1[0]<0] = np.array([0,1])
+                tcbgaia_fov1 = self.linearbisect(_xyz, self.xyz_fov_1[_tidx_fov1], self.tcb_at_gaia[_tidx_fov1])
+                tgaia_fov1[_sidx] = tcbgaia_fov1
+                nscan_fov1[_sidx] = np.sum(condition_fov1)
+
+            if n_fov2>0:
+                condition_fov2 = self.tcb_at_gaia[_in_fov[n_fov1:]][1:] - self.tcb_at_gaia[_in_fov[n_fov1:]][:-1] > self.t_diff
+                condition_fov2 = np.insert(condition_fov2, 0, True)
+
+                _tidx_fov2 = np.vstack((_in_fov[n_fov1:][condition_fov2]-1, _in_fov[n_fov1:][condition_fov2]))
+                _tidx_fov2.T[_tidx_fov2[0]<0] = np.array([0,1])
+                tcbgaia_fov2 = self.linearbisect(_xyz, self.xyz_fov_2[_tidx_fov2], self.tcb_at_gaia[_tidx_fov2])
+                tgaia_fov2[_sidx] = tcbgaia_fov2
+                nscan_fov2[_sidx] = np.sum(condition_fov2)
+
+        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
 
     #@ensure_flat_icrs
     def query(self, sources):
@@ -216,8 +281,11 @@ class dr2_sl(ScanningLaw):
                                np.sin(np.deg2rad(radec_source[:,0]))*np.cos(np.deg2rad(radec_source[:,1])),
                                np.sin(np.deg2rad(radec_source[:,1]))]).T
 
+        print(xyz_source.shape[0])
         # Evaluate selection function
-        tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law(xyz_source)
+        if xyz_source.shape[0]>5e6:
+              tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law(xyz_source)
+        else: tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law_inverse(xyz_source)
 
         return {'tgaia_fov1':tgaia_fov1, 'tgaia_fov2':tgaia_fov2, 'nscan_fov1':nscan_fov1, 'nscan_fov2':nscan_fov2, 'shape':coord_shape}
 
