@@ -129,7 +129,7 @@ class dr2_sl(ScanningLaw):
 
         _d_line = xyz_line[1]-xyz_line[0]
         _d_obj = xyz_obj-xyz_line[0]
-        _line_sqlen = np.sum((_d_line)**2)
+        _line_sqlen = np.sum((_d_line)**2, axis=1)
 
         _d_tobs = (tgaia_line[1]-tgaia_line[0]) * np.sum(_d_line * _d_obj, axis=1) / _line_sqlen
 
@@ -179,16 +179,20 @@ class dr2_sl(ScanningLaw):
             t_previous[_valid] = _t_now
 
             if len(_valid)>0:
-                tcbgaia_fov1 = self.linearbisect(_xyz[_where[:n_fov1]], self.xyz_fov_1[max(0,_tidx-1):_tidx+2][:2], self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
-                tcbgaia_fov2 = self.linearbisect(_xyz[_where[n_fov1:]], self.xyz_fov_2[max(0,_tidx-1):_tidx+2][:2], self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
+                tcbgaia_fov1 = self.linearbisect(_xyz[_where[:n_fov1]], self.xyz_fov_1[max(0,_tidx-1):_tidx+2][:2][:,np.newaxis],
+                                                                        self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2][:,np.newaxis])
+                tcbgaia_fov2 = self.linearbisect(_xyz[_where[n_fov1:]], self.xyz_fov_2[max(0,_tidx-1):_tidx+2][:2][:,np.newaxis],
+                                                                        self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2][:,np.newaxis])
                 for ii in range(n_fov1):
                     _sidx = _valid[ii]
                     tgaia_fov1[_sidx].append(tcbgaia_fov1[ii])
                     nscan_fov1[_sidx] += 1
+                    #print(self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
                 for ii in range(len(_valid)-n_fov1):
                     _sidx = _valid[ii+n_fov1]
                     tgaia_fov2[_sidx].append(tcbgaia_fov2[ii])
                     nscan_fov2[_sidx] += 1
+                    #print(self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
 
         return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
 
@@ -282,7 +286,6 @@ class dr2_sl(ScanningLaw):
                                np.sin(np.deg2rad(radec_source[:,0]))*np.cos(np.deg2rad(radec_source[:,1])),
                                np.sin(np.deg2rad(radec_source[:,1]))]).T
 
-        print(xyz_source.shape[0])
         # Evaluate selection function
         if xyz_source.shape[0]>5e6:
               tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law(xyz_source)
@@ -334,6 +337,7 @@ def fetch(version='cogi_2020', fname=None):
 
     requirements = {
         'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
+        'dr2_nominal': {'filename': 'DEOPTSK-1327_Gaia_scanlaw.csv.gz'},
     }[version]
 
     # Download the data
