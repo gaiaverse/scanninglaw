@@ -446,6 +446,28 @@ def dataverse_download_doi(doi,
         'The metadata found for this DOI was:\n'
         + json.dumps(file_metadata, indent=2, sort_keys=True))
 
+def move_file_location(fname, local_fname):
+    """
+    Copies a file to known directory of scanning law data.
+
+    Args:
+        fname (str): Current path to file.
+        local_fname (Optional[str]): Local filename to move the file to.
+
+    Raises:
+
+    """
+    if local_fname.endswith('.gz'):
+        local_fname=local_fname[:-3]
+
+    if fname.endswith('.gz'):
+        print("Unzipping File to '%s'..." % local_fname)
+        with gzip.open(fname, 'rb') as f_in:
+            with open(local_fname, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+    else: shutil.copyfile(fname, local_fname)
+
+
 
 def download_demo():
     doi = '10.5072/FK2/ZSEMG9'

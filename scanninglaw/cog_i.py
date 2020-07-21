@@ -54,6 +54,7 @@ class dr2_sl(ScanningLaw):
                 :obj:`None`, meaning that the default location is used.
             version (Optional[:obj:`str`]): The scanning law version to download. Valid versions
                 are :obj:`'cogi_2020'`
+                are :obj:`'dr2_nominal'`
                 Defaults to :obj:`'cogi_2020'`.
         """
 
@@ -290,7 +291,7 @@ class dr2_sl(ScanningLaw):
         return {'tgaia_fov1':tgaia_fov1, 'tgaia_fov2':tgaia_fov2, 'nscan_fov1':nscan_fov1, 'nscan_fov2':nscan_fov2, 'shape':coord_shape}
 
 
-def fetch(version='cogi_2020'):
+def fetch(version='cogi_2020', fname=None):
     """
     Downloads the specified version of the Gaia DR2 scanning law.
 
@@ -308,8 +309,19 @@ def fetch(version='cogi_2020'):
             was a problem connecting to the Dataverse.
     """
 
+    local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+
+    if (version=='dr2_nominal')&(fname is None):
+        raise ValueError("\nNominal scanning law at ftp.cosmos.esa.int/GAIA_PUBLIC_DATA/GaiaScanningLaw/DEOPTSK-1327_Gaia_scanlaw.csv.gz.\n"\
+                          "Download .gz file using ftp client then run fetch(version='dr2_nominal', fname='path/to/file'). ")
+    elif version=='dr2_nominal':
+        fetch_utils.move_file_location(fname, local_fname)
+        return None
+
+
     doi = {
-        'cogi_2020': '10.7910/DVN/OFRA78'
+        'cogi_2020': '10.7910/DVN/OFRA78',
+        'dr2_nominal': ''
     }
     # Raise an error if the specified version of the map does not exist
     try:
@@ -321,10 +333,8 @@ def fetch(version='cogi_2020'):
         ))
 
     requirements = {
-        'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'}
+        'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
     }[version]
-
-    local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
 
     # Download the data
     fetch_utils.dataverse_download_doi(
