@@ -35,7 +35,7 @@ import healpy as hp
 from scipy import interpolate, special, spatial
 
 from .std_paths import *
-from .map import ScanningLaw, ensure_flat_icrs, coord2healpix
+from .map import ScanningLaw, ensure_flat_icrs, coord2healpix, tcbgaia2obmt, obmt2tcbgaia
 from .source import ensure_gaia_g, Source
 from . import fetch_utils
 
@@ -86,8 +86,8 @@ class dr2_sl(ScanningLaw):
         _data = pd.read_csv(gaps_fname, usecols=_columns)
         self._gaps = np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T
         if sample=='Astrometry':
-            self._gaps = np.vstack((np.array([-np.inf, 1694.8761])[np.newaxis,:], self._gaps ))
-            self._gaps = np.vstack(( self._gaps, np.array([2334.4836, np.inf])[np.newaxis,:],  ))
+            self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(1192.13)])[np.newaxis,:], self._gaps ))
+            self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(3750.56), np.inf])[np.newaxis,:],  ))
 
         t_auxilliary = time()
 

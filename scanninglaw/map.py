@@ -81,6 +81,29 @@ def coord2healpix(coords, frame, nside, nest=True):
             'No method to transform from coordinate frame "{}" to HEALPix.'.format(
                 frame))
 
+def tcbgaia2obmt(tcb):
+    """
+    Calculate OnBoard Mission Time (OBMT, rev) from Gaia Barycenter coordinate time (TCB, days).
+
+    Args:
+        tcb (:obj:`np.ndarray`): TCB (days).
+
+    Returns:
+        tcb (:obj:`np.ndarray`): OBMT (revs).
+    """
+    return 1717.6256+((tcb + 2455197.5 - 2457023.5 - 0.25)*4)
+
+def obmt2tcbgaia(obmt):
+    """
+    Calculate Gaia Barycenter coordinate time (TCB, days) from OnBoard Mission Time (OBMT, revs).
+
+    Args:
+        tcb (:obj:`np.ndarray`): OBMT (revs).
+
+    Returns:
+        tcb (:obj:`np.ndarray`): TCB (days).
+    """
+    return (obmt - 1717.6256)/4 -  (2455197.5 - 2457023.5 - 0.25)
 
 def ensure_coord_type(f):
     """
