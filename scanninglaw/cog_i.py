@@ -47,7 +47,7 @@ class dr2_sl(ScanningLaw):
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry', test=False):
+    def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry', require_persistent=False, test=False):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the Boubert,Everall,Holl 2020 scanning law. Defaults to
@@ -82,9 +82,10 @@ class dr2_sl(ScanningLaw):
         _box['scan_idx'] = np.arange(len(_box['ra_fov_1']))
 
         ##### Load gaps
-        _columns = ['start [rev]', 'end [rev]'];
+        _columns = ['start [rev]', 'end [rev]', 'persistent'];
         _data = pd.read_csv(gaps_fname, usecols=_columns)
         self._gaps = np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T
+        if require_persistent: self._gaps=self._gaps[_data['persistent']==True]
         if sample=='Astrometry':
             self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(1192.13)])[np.newaxis,:], self._gaps ))
             self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(3750.56), np.inf])[np.newaxis,:],  ))
