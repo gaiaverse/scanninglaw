@@ -27,6 +27,7 @@ import os
 import h5py
 import numpy as np
 import tqdm
+import scipy
 
 import astropy.coordinates as coordinates
 import astropy.units as units
@@ -47,7 +48,8 @@ class dr2_sl(ScanningLaw):
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry', require_persistent=False, test=False):
+    def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry',
+                        fractions='cog_dr2_gaps_and_fractions_v1.h5', require_persistent=False, test=False):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the Boubert,Everall,Holl 2020 scanning law. Defaults to
@@ -64,8 +66,8 @@ class dr2_sl(ScanningLaw):
 
         if map_fname is None:
             map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
-
         gaps_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(sample))
+        fractions_fname = os.path.join(data_dir(), 'cog', fractions)
 
         t_start = time()
 
@@ -84,11 +86,22 @@ class dr2_sl(ScanningLaw):
         ##### Load gaps
         _columns = ['start [rev]', 'end [rev]', 'persistent'];
         _data = pd.read_csv(gaps_fname, usecols=_columns)
-        self._gaps = np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T
+        self._gaps = obmt2tcbgaia(np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T)
         if require_persistent: self._gaps=self._gaps[_data['persistent']==True]
         if sample=='Astrometry':
             self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(1192.13)])[np.newaxis,:], self._gaps ))
             self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(3750.56), np.inf])[np.newaxis,:],  ))
+
+        ##### Load fraction
+        with h5py.File(fractions_fname, "r") as f:
+            scanninglaw_times = f['times'][:]
+            scanninglaw_gaps = f['gaps'][:]
+            scanninglaw_fractions = f['fractions'][:]
+        probability_time_series = scanninglaw_fractions*scanninglaw_gaps[np.newaxis,:]
+        print('Interpolating...')
+        #gap_interp = scipy.interpolate.interp1d(scanninglaw_times, scanninglaw_gaps, kind='nearest', bounds_error=False, fill_value='extrapolate')
+        self.probability_mag_interp = [scipy.interpolate.interp1d(scanninglaw_times, probability_time_series[j], kind='nearest', bounds_error=False, fill_value='extrapolate')
+                                    for j in range(probability_time_series.shape[0])]
 
         t_auxilliary = time()
 
@@ -129,6 +142,9 @@ class dr2_sl(ScanningLaw):
 
         self.tree_fov1 = spatial.cKDTree(self.xyz_fov_1)
         self.tree_fov2 = spatial.cKDTree(self.xyz_fov_2)
+
+        self.magbins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
+                                 20, 20.3, 20.4, 20.5, 20.6, 20.7,20.8,20.9, 21])
 
         t_interpolator = time()
 
@@ -294,10 +310,64 @@ class dr2_sl(ScanningLaw):
 
         return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
 
+    def _get_magidx(self, G):
+
+        """
+        Returns the magnitude bin ids for the given magnitudes.
+
+        Args:
+            G (:obj:`np.ndarray`): G magnitude.
+
+        Returns:
+            magidx (:obj:`dict`): bin ID of magnitude
+
+        """
+
+        magidx = np.zeros(G.shape).astype(int) - 1
+
+        for mag in self.magbins:
+            magidx += (G>mag).astype(int)
+
+        magidx[magidx==len(self.magbins)-1] = -99
+        magidx[magidx==-1] = -99
+
+        return magidx
+
+    def _scanning_fraction(self, magidx, tgaia_fov1, tgaia_fov2):
+
+        """
+        Returns the scan fractions.
+
+        Args:
+            magidx (:obj:`np.ndarray`): magnitude bin ids.
+            tgaia_fov1 (:obj:`np.array`): observation times in FoV1.
+            tgaia_fov2 (:obj:`np.array`): observation times in FoV2.
+
+        Returns:
+            fraction_fov1 (:obj:`np.array`): scan fraction in FoV1.
+            fraction_fov2 (:obj:`np.array`): scan fraction in FoV2.
+        """
+
+        fraction_fov1 = [[] for i in range(len(magidx))]
+        fraction_fov2 = [[] for i in range(len(magidx))]
+
+        # Iterate through scanning time steps
+        for _sidx in tqdm.tqdm_notebook(range(0,len(magidx))):
+
+            if magidx[_sidx]==-99:
+                fraction_fov1[_sidx] = [np.nan for i in range(len(tgaia_fov1[_sidx]))]
+                fraction_fov2[_sidx] = [np.nan for i in range(len(tgaia_fov2[_sidx]))]
+                continue
+
+            fraction_fov1[_sidx] = self.probability_mag_interp[magidx[_sidx]](tgaia_fov1[_sidx])
+            fraction_fov2[_sidx] = self.probability_mag_interp[magidx[_sidx]](tgaia_fov2[_sidx])
+
+        return fraction_fov1, fraction_fov1
+
     #@ensure_flat_icrs
     def query(self, sources):
         """
-        Returns the selection function at the requested coordinates.
+        Returns the scanning law at the requested coordinates.
 
         Args:
             sources (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
@@ -328,10 +398,27 @@ class dr2_sl(ScanningLaw):
               tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law(xyz_source)
         else: tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law_inverse(xyz_source)
 
+        # Extract Gaia G magnitude
+        try: G = sources.photometry.measurement['gaia_g']; G_given = True
+        except AttributeError: G_given=False
+        if G_given:
+            if type(G)==np.ndarray: G = G.flatten()
+            else: G = np.array([G])
+
+            Gidx = self._get_magidx(G)
+            fraction_fov1, fraction_fov2 = self._scanning_fraction(Gidx, tgaia_fov1, tgaia_fov2)
+
+            tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
+            tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
+            fraction_fov1 = np.array(fraction_fov1).reshape(coord_shape)
+            fraction_fov2 = np.array(fraction_fov2).reshape(coord_shape)
+
+            return (tgaia_fov1, tgaia_fov2), (nscan_fov1, nscan_fov2), (fraction_fov1, fraction_fov2)
+
         tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
         tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
 
-        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
+        return (tgaia_fov1, tgaia_fov2), (nscan_fov1, nscan_fov2)
 
 
 def fetch(version='cogi_2020', fname=None):
