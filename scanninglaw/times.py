@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# cog_ii.py
+# times.py
 # Reads the Gaia DR2 selection function from Completeness
 # of the Gaia-verse Paper II, Boubert & Everall (2020).
 #
@@ -64,6 +64,7 @@ class dr2_sl(ScanningLaw):
                 Defaults to :obj:`'Spectroscopy'`.
         """
 
+        if version=='cog': version='cogi_2020'
         if map_fname is None:
             map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
         gaps_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(sample))
@@ -365,7 +366,7 @@ class dr2_sl(ScanningLaw):
         return fraction_fov1, fraction_fov1
 
     #@ensure_flat_icrs
-    def query(self, sources):
+    def query(self, sources, return_counts=False, return_fractions=False, fov=12):
         """
         Returns the scanning law at the requested coordinates.
 
@@ -373,10 +374,17 @@ class dr2_sl(ScanningLaw):
             sources (:obj:`astropy.coordinates.SkyCoord`): The coordinates to query.
                     (:obj:`scanninglaw.source.Source`): The coordinates to query.
 
+        KwArgs:
+            return_counts
+            return_fractions
+            fov
+
         Returns:
             (:obj:`dict`): Observation times of each object by each FoV. Number of observations of each object by each FoV
 
         """
+
+        if not fov in (1,2,12): raise ValueError('Invalid value for kwarg fov. fov must be 1, 2 or 12.')
 
         if type(sources) == Source: coords = sources.coord.transform_to('icrs')
         else: coords = sources.transform_to('icrs')
@@ -401,7 +409,10 @@ class dr2_sl(ScanningLaw):
         # Extract Gaia G magnitude
         try: G = sources.photometry.measurement['gaia_g']; G_given = True
         except AttributeError: G_given=False
-        if G_given:
+
+        if (not G_given)&(return_fractions):
+            raise ValueError("return_fractions=true but gaia_g not given. gaia_g must be set in Source instance to return fractions. \ne.g. Source('12h30m25.3s', '15d15m58.1s', frame='icrs', photometry={'gaia_g':21.0})")
+        elif (G_given)&(return_fractions):
             if type(G)==np.ndarray: G = G.flatten()
             else: G = np.array([G])
 
@@ -413,12 +424,24 @@ class dr2_sl(ScanningLaw):
             fraction_fov1 = np.array(fraction_fov1).reshape(coord_shape)
             fraction_fov2 = np.array(fraction_fov2).reshape(coord_shape)
 
-            return (tgaia_fov1, tgaia_fov2), (nscan_fov1, nscan_fov2), (fraction_fov1, fraction_fov2)
-
         tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
         tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
 
-        return (tgaia_fov1, tgaia_fov2), (nscan_fov1, nscan_fov2)
+        ret = ()
+        if (fov==1):
+            ret += (tgaia_fov1,)
+            if return_counts: ret += (nscan_fov1,)
+            if return_fractions: ret += (fraction_fov1,)
+        if (fov==2):
+            ret += (tgaia_fov2,)
+            if return_counts: ret += (nscan_fov2,)
+            if return_fractions: ret += (fraction_fov2,)
+        if (fov==12):
+            ret += ([tgaia_fov1,tgaia_fov2],)
+            if return_counts: ret += ([nscan_fov1, nscan_fov2],)
+            if return_fractions: ret += ([fraction_fov1,fraction_fov2],)
+
+        return ret
 
 
 def fetch(version='cogi_2020', fname=None):
