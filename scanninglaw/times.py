@@ -49,7 +49,9 @@ class dr2_sl(ScanningLaw):
     """
 
     def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry',
-                        fractions='cog_dr2_gaps_and_fractions_v1.h5', require_persistent=False, test=False):
+                        fractions='cog_dr2_gaps_and_fractions_v1.h5',
+                        ephemeris='horizons_results_gaia.txt',
+                        require_persistent=False, test=False):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the Boubert,Everall,Holl 2020 scanning law. Defaults to
@@ -69,6 +71,10 @@ class dr2_sl(ScanningLaw):
             map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
         gaps_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(sample))
         fractions_fname = os.path.join(data_dir(), 'cog', fractions)
+        ephemeris_fname = os.path.join(data_dir(), 'cog', ephemeris)
+
+        print(ephemeris_fname)
+        gaia_ephem_data = pd.read_csv(ephemeris_fname,skiprows=64)
 
         t_start = time()
 
@@ -103,6 +109,14 @@ class dr2_sl(ScanningLaw):
         #gap_interp = scipy.interpolate.interp1d(scanninglaw_times, scanninglaw_gaps, kind='nearest', bounds_error=False, fill_value='extrapolate')
         self.probability_mag_interp = [scipy.interpolate.interp1d(scanninglaw_times, probability_time_series[j], kind='nearest', bounds_error=False, fill_value='extrapolate')
                                     for j in range(probability_time_series.shape[0])]
+
+        # Load Gaia ephemeris data
+        # Define units
+        speed_of_light_AU_per_day = 299792458.0*(86400.0/149597870.700/1e3)
+        # Prepare ephem data
+        gaia_ephem_data = pd.read_csv(ephemeris_fname,skiprows=64)
+        gaia_ephem_box = {k:gaia_ephem_data[k].values for k in ['JDTDB','X','Y','Z','VX','VY','VZ']}
+        self.gaia_ephem_velocity = interpolate.interp1d(gaia_ephem_box['JDTDB']-2455197.5,np.stack([gaia_ephem_box['VX'],gaia_ephem_box['VY'],gaia_ephem_box['VZ']])/speed_of_light_AU_per_day,kind='cubic')
 
         t_auxilliary = time()
 
@@ -166,6 +180,18 @@ class dr2_sl(ScanningLaw):
 
         return tgaia_line[0]+_d_tobs
 
+    def aberration(self, xyz_source, _t_now):
+
+        # Aberration correction
+        _gaia_velocity = self.gaia_ephem_velocity(_t_now)
+
+        if len(xyz_source.shape)==1:
+              _xyz = xyz_source + _gaia_velocity.T
+        else: _xyz = xyz_source + _gaia_velocity
+        _xyz = _xyz/np.linalg.norm(_xyz,axis=1)[:,np.newaxis]
+
+        return _xyz
+
     def _scanning_law(self, xyz_source):
 
         # Run this code for large numbers of sources (5 million +)
@@ -193,8 +219,8 @@ class dr2_sl(ScanningLaw):
             if len(_in_fov) == 0:
                 continue
 
-            # xyz coordinates of sources
-            _xyz = xyz_source[_in_fov]
+            # xyz coordinates of sources corrected for aberration
+            _xyz = self.aberration(xyz_source[_in_fov], _t_now)
             _uvw = np.einsum('ij,nj->ni',self._matrix[_tidx],_xyz)
 
             _l = np.rad2deg(np.arctan2(_uvw[:,1],_uvw[:,0]))
@@ -261,9 +287,10 @@ class dr2_sl(ScanningLaw):
             if len(_in_fov)==0:
                 continue
 
-            # xyz coordinates of sources
-            _xyz = xyz_source[_sidx]
-            _uvw = np.einsum('ikj,j->ik',self._matrix[_in_fov],_xyz)
+            # xyz coordinates of sources corrected for aberration
+            _t_now = self.tcb_at_gaia[_in_fov]
+            _xyz = self.aberration(xyz_source[_sidx], _t_now)
+            _uvw = np.einsum('ikj,ij->ik',self._matrix[_in_fov],_xyz)
 
             _l = np.rad2deg(np.arctan2(_uvw[:,1],_uvw[:,0]))
             _b = np.rad2deg(np.arctan2(_uvw[:,2],np.sqrt(_uvw[:,0]**2.0+_uvw[:,1]**2.0)))
@@ -282,7 +309,7 @@ class dr2_sl(ScanningLaw):
 
                 _tidx_fov1 = np.vstack((_in_fov[:n_fov1][condition_fov1]-1, _in_fov[:n_fov1][condition_fov1]))
                 _tidx_fov1.T[_tidx_fov1[0]<0] = np.array([0,1])
-                tcbgaia_fov1 = self.linearbisect(_xyz, self.xyz_fov_1[_tidx_fov1], self.tcb_at_gaia[_tidx_fov1])
+                tcbgaia_fov1 = self.linearbisect(_xyz[condition][:n_fov1][condition_fov1], self.xyz_fov_1[_tidx_fov1], self.tcb_at_gaia[_tidx_fov1])
 
                 # Apply scanning law gaps
                 condition_gap1 = np.ones(np.sum(condition_fov1)).astype(bool)
@@ -299,7 +326,7 @@ class dr2_sl(ScanningLaw):
 
                 _tidx_fov2 = np.vstack((_in_fov[n_fov1:][condition_fov2]-1, _in_fov[n_fov1:][condition_fov2]))
                 _tidx_fov2.T[_tidx_fov2[0]<0] = np.array([0,1])
-                tcbgaia_fov2 = self.linearbisect(_xyz, self.xyz_fov_2[_tidx_fov2], self.tcb_at_gaia[_tidx_fov2])
+                tcbgaia_fov2 = self.linearbisect(_xyz[condition][n_fov1:][condition_fov2], self.xyz_fov_2[_tidx_fov2], self.tcb_at_gaia[_tidx_fov2])
 
                 # # Apply scanning law gaps
                 condition_gap2 = np.ones(np.sum(condition_fov2)).astype(bool)
