@@ -273,6 +273,7 @@ def download_and_verify(url, md5sum, fname=None,
                         if content_length is not None:
                             bar_val = min(bar_val, content_length)
                         bar.update(bar_val)
+                print('')
     else: # e.g., ftp://
         with contextlib.closing(urlopen(url)) as r:
             content_length = r.headers.get('content-length')
@@ -297,6 +298,7 @@ def download_and_verify(url, md5sum, fname=None,
                         if content_length is not None:
                             bar_val = min(bar_val, content_length)
                         bar.update(bar_val)
+            print('')
 
 
     if sig.hexdigest() != md5sum:
@@ -428,7 +430,7 @@ def dataverse_download_doi(doi,
             else: local_fname_unzipped=local_fname
 
             if (not clobber) and os.path.isfile(local_fname_unzipped):
-                print('Checking existing file to see if MD5 sum matches ...')
+                print('Checking existing file "%s" to see if MD5 sum matches ...' % local_fname_unzipped)
                 md5_existing = get_md5sum(local_fname_unzipped)
                 if md5_existing == md5sum:
                     print('File exists. Not overwriting.')

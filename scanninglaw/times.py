@@ -42,6 +42,12 @@ from . import fetch_utils
 
 from time import time
 
+version_filenames = {
+    'cogi_2020': 'cog_dr2_scanning_law_v1.csv',
+    'cog3_2020': 'cog_dr2_scanning_law_v2.csv',
+    'dr2_nominal': 'DEOPTSK-1327_Gaia_scanlaw.csv'
+    }
+
 
 class dr2_sl(ScanningLaw):
     """
@@ -74,13 +80,9 @@ class dr2_sl(ScanningLaw):
                 Defaults to :obj:`'horizons_results_gaia.txt'`.
         """
 
-        filenames = {'cogi_2020': 'cogi_2020',
-                     'cog3_2020': 'cog3_2020',
-                     'dr2_nominal': 'dr2_nominal'}
-
         if version=='cog': version='cog3_2020'
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(filenames[version]))
+            map_fname = os.path.join(data_dir(), 'cog', '{}'.format(version_filenames[version]))
         self.fractions_fname = os.path.join(data_dir(), 'cog', fractions)
         local_dirname = os.path.dirname(__file__)
         gaps_fname = os.path.join(local_dirname, 'data', '{}.csv'.format(sample))
@@ -230,7 +232,7 @@ class dr2_sl(ScanningLaw):
         tree_source = spatial.cKDTree(xyz_source)
 
         # Iterate through scanning time steps
-        for _tidx in tqdm.tqdm_notebook(range(0,self.xyz_fov_1.shape[0])):
+        for _tidx in self.tqdm_foo(range(0,self.xyz_fov_1.shape[0]), disable=not self.progressbar):
             _t_now = self.tcb_at_gaia[_tidx]
             # Find all sources in scan window
             _in_fov = tree_source.query_ball_point([self.xyz_fov_1[_tidx].copy(order='C'),
@@ -300,7 +302,7 @@ class dr2_sl(ScanningLaw):
         nscan_fov2 = [0 for i in range(nsource)]
 
         # Iterate through scanning time steps
-        for _sidx in tqdm.tqdm_notebook(range(0,xyz_source.shape[0])):
+        for _sidx in self.tqdm_foo(range(0,xyz_source.shape[0]), disable=not self.progressbar):
             # Find all sources in scan window
             _in_fov1 = np.sort(self.tree_fov1.query_ball_point(xyz_source[_sidx].copy(order='C'), self.r_search))
             _in_fov2 = np.sort(self.tree_fov2.query_ball_point(xyz_source[_sidx].copy(order='C'), self.r_search))
@@ -403,7 +405,7 @@ class dr2_sl(ScanningLaw):
         fraction_fov2 = [[] for i in range(len(magidx))]
 
         # Iterate through scanning time steps
-        for _sidx in tqdm.tqdm_notebook(range(0,len(magidx))):
+        for _sidx in self.tqdm_foo(range(0,len(magidx)), disable=not self.progressbar):
 
             if magidx[_sidx]==-99:
                 fraction_fov1[_sidx] = [np.nan for i in range(len(tgaia_fov1[_sidx]))]
@@ -416,7 +418,7 @@ class dr2_sl(ScanningLaw):
         return fraction_fov1, fraction_fov1
 
     #@ensure_flat_icrs
-    def query(self, sources, return_counts=False, return_fractions=False, fov=12):
+    def query(self, sources, return_counts=False, return_fractions=False, fov=12, progress=False):
         """
         Returns the scanning law at the requested coordinates.
 
@@ -425,9 +427,10 @@ class dr2_sl(ScanningLaw):
                     (:obj:`scanninglaw.source.Source`): The coordinates to query.
 
         KwArgs:
-            return_counts
-            return_fractions
-            fov
+            return_counts (:obj:`bool`)
+            return_fractions (:obj:`bool`)
+            fov (:obj:`int`). Which fov to return 1, 2 or 12 for both FoVs
+            progress (:obj:`bool` or `str`). False - No progress bar. True - tqdm.tqdm progressbar. 'notebook' - tqdm.tqdm_notebook progress bar (for Jupyter notebooks)
 
         Returns:
             (:obj:`dict`): Observation times of each object by each FoV. Number of observations of each object by each FoV
@@ -435,6 +438,13 @@ class dr2_sl(ScanningLaw):
         """
 
         if not fov in (1,2,12): raise ValueError('Invalid value for kwarg fov. fov must be 1, 2 or 12.')
+
+        if progress=='notebook':
+            self.tqdm_foo = tqdm.tqdm_notebook
+            self.progressbar=True
+        else:
+            self.tqdm_foo = tqdm.tqdm
+            self.progressbar=bool(progress)
 
         if type(sources) == Source: coords = sources.coord.transform_to('icrs')
         else: coords = sources.transform_to('icrs')
@@ -504,7 +514,7 @@ def fetch(version='cog3_2020', fname=None):
         version (Optional[:obj:`str`]): The map version to download. Valid versions are
             :obj:`'cogi_2020'` (Boubert, Everall & Holl 2020)
             :obj:`'cog3_2020'` (Boubert, Everall, Fraser, Gration & Holl 2020)
-            :obj:`'dr2_nominal'` (Prusti+ 2016, Brown+2018)
+            :obj:`'dr2_nominal'` (Prusti+ 2016, Brown+ 2018)
             Defaults to :obj:`'cog3_2020'`.
 
     Raises:
@@ -517,14 +527,23 @@ def fetch(version='cog3_2020', fname=None):
             was a problem connecting to the Dataverse.
     """
 
+    if not version in version_filenames:
+        raise ValueError('{0} not valid. Valid map names are: {1}'.format(version, list(version_filenames.keys())))
+
     requirements = {
         'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
         'cog3_2020': {'filename': 'cog_dr2_scanning_law_v2.csv'},
         'dr2_nominal': {'filename': 'DEOPTSK-1327_Gaia_scanlaw.csv.gz'},
     }[version]
+    #if version=='cog3_2020': local_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
+    #else: local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+    local_fname = os.path.join(data_dir(), 'cog', requirements['filename'])
 
-    if version=='cog3_2020': local_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
-    else: local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+    # Download gaps and fractions
+    fetch_utils.dataverse_download_doi(
+        '10.7910/DVN/ST8TSM',
+        os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
+        file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
 
     if (version=='dr2_nominal')&(fname is None):
         raise ValueError("\nNominal scanning law at ftp.cosmos.esa.int/GAIA_PUBLIC_DATA/GaiaScanningLaw/DEOPTSK-1327_Gaia_scanlaw.csv.gz.\n"\
@@ -546,12 +565,6 @@ def fetch(version='cog3_2020', fname=None):
             version,
             ', '.join(['"{}"'.format(k) for k in doi.keys()])
         ))
-
-    # Download gaps and fractions
-    fetch_utils.dataverse_download_doi(
-        '10.7910/DVN/ST8TSM',
-        os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
-        file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
 
     # Download the data
     fetch_utils.dataverse_download_doi(

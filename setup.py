@@ -56,13 +56,9 @@ class InstallCommand(install):
         # install.do_egg_install(self) # Due to bug in setuptools that causes old-style install
         install.run(self)
 
-def fetch_cog3_2020():
+def fetch_map(version='cog3_2020'):
     import scanninglaw.times
-    scanninglaw.times.fetch()
-
-def fetch_cogi_2020():
-    import scanninglaw.times
-    scanninglaw.times.fetch(version='cogi_2020')
+    scanninglaw.times.fetch(version=version)
 
 class FetchCommand(distutils.cmd.Command):
     description = ('Fetch selection functions from the web, and store them in the data '
@@ -70,10 +66,7 @@ class FetchCommand(distutils.cmd.Command):
     user_options = [
         ('map-name=', None, 'Which selection functions to load.')]
 
-    map_funcs = {
-        'cogi_2020': fetch_cogi_2020,
-        'cog3_2020': fetch_cog3_2020,
-    }
+    #map_names_valid = ['cogi_2020', 'cog3_2020', 'dr2_nominal']
 
     def initialize_options(self):
         self.map_name = None
@@ -84,12 +77,12 @@ class FetchCommand(distutils.cmd.Command):
         except ImportError:
             print('You must install the package scanninglaw before running the '
                   'fetch command.')
-        if not self.map_name in self.map_funcs:
-            print('Valid map names are: {}'.format(self.map_funcs.keys()))
+        # if not self.map_name in self.map_funcs:
+        #     print('Valid map names are: {}'.format(self.map_funcs.keys()))
 
     def run(self):
         print('Fetching map: {}'.format(self.map_name))
-        self.map_funcs[self.map_name]()
+        fetch_map(version=self.map_name)
 
 
 def readme():
