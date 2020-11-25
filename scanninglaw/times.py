@@ -48,7 +48,7 @@ class dr2_sl(ScanningLaw):
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry',
+    def __init__(self, map_fname=None, version='cog3_2020', sample='Astrometry',
                         fractions='cog_dr2_gaps_and_fractions_v1.h5',
                         ephemeris='horizons_results_gaia.txt',
                         require_persistent=False, test=False):
@@ -66,7 +66,7 @@ class dr2_sl(ScanningLaw):
                 Defaults to :obj:`'Spectroscopy'`.
         """
 
-        if version=='cog': version='cogi_2020'
+        if version=='cog': version='cog3_2020'
         if map_fname is None:
             map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
         gaps_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(sample))
@@ -144,7 +144,8 @@ class dr2_sl(ScanningLaw):
 
         # Gaia FoV parameters
         self.t_diff = 1/24 # 1 hours
-        self.r_search = np.tan(np.deg2rad(0.35*np.sqrt(2)))
+        # CCD width: 0.7deg, Add aberration freedom: maximum 21arcsec
+        self.r_search = np.tan(np.deg2rad(0.35*np.sqrt(2) + 25./3600))
         b_fov = 0.35
         zeta_origin_1 = +221/3600
         zeta_origin_2 = -221/3600
@@ -471,7 +472,7 @@ class dr2_sl(ScanningLaw):
         return ret
 
 
-def fetch(version='cogi_2020', fname=None):
+def fetch(version='cog3_2020', fname=None):
     """
     Downloads the specified version of the Gaia DR2 scanning law.
 
@@ -489,7 +490,14 @@ def fetch(version='cogi_2020', fname=None):
             was a problem connecting to the Dataverse.
     """
 
-    local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+    requirements = {
+        'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
+        'cog3_2020': {'filename': 'cog_dr2_scanning_law_v2.csv'},
+        'dr2_nominal': {'filename': 'DEOPTSK-1327_Gaia_scanlaw.csv.gz'},
+    }[version]
+
+    if version=='cog3_2020': local_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
+    else: local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
 
     if (version=='dr2_nominal')&(fname is None):
         raise ValueError("\nNominal scanning law at ftp.cosmos.esa.int/GAIA_PUBLIC_DATA/GaiaScanningLaw/DEOPTSK-1327_Gaia_scanlaw.csv.gz.\n"\
@@ -501,6 +509,7 @@ def fetch(version='cogi_2020', fname=None):
 
     doi = {
         'cogi_2020': '10.7910/DVN/OFRA78',
+        'cog3_2020': '10.7910/DVN/MYIPLH',
         'dr2_nominal': ''
     }
     # Raise an error if the specified version of the map does not exist
@@ -511,11 +520,6 @@ def fetch(version='cogi_2020', fname=None):
             version,
             ', '.join(['"{}"'.format(k) for k in doi.keys()])
         ))
-
-    requirements = {
-        'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
-        'dr2_nominal': {'filename': 'DEOPTSK-1327_Gaia_scanlaw.csv.gz'},
-    }[version]
 
     # Download the data
     fetch_utils.dataverse_download_doi(
