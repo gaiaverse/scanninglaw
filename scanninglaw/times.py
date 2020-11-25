@@ -42,6 +42,12 @@ from . import fetch_utils
 
 from time import time
 
+version_filenames = {
+    'cogi_2020': 'cog_dr2_scanning_law_v1.csv',
+    'cog3_2020': 'cog_dr2_scanning_law_v2.csv',
+    'dr2_nominal': 'DEOPTSK-1327_Gaia_scanlaw.csv'
+    }
+
 
 class dr2_sl(ScanningLaw):
     """
@@ -74,13 +80,9 @@ class dr2_sl(ScanningLaw):
                 Defaults to :obj:`'horizons_results_gaia.txt'`.
         """
 
-        filenames = {'cogi_2020': 'cogi_2020',
-                     'cog3_2020': 'cog3_2020',
-                     'dr2_nominal': 'dr2_nominal'}
-
         if version=='cog': version='cog3_2020'
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(filenames[version]))
+            map_fname = os.path.join(data_dir(), 'cog', '{}'.format(version_filenames[version]))
         self.fractions_fname = os.path.join(data_dir(), 'cog', fractions)
         local_dirname = os.path.dirname(__file__)
         gaps_fname = os.path.join(local_dirname, 'data', '{}.csv'.format(sample))
@@ -504,7 +506,7 @@ def fetch(version='cog3_2020', fname=None):
         version (Optional[:obj:`str`]): The map version to download. Valid versions are
             :obj:`'cogi_2020'` (Boubert, Everall & Holl 2020)
             :obj:`'cog3_2020'` (Boubert, Everall, Fraser, Gration & Holl 2020)
-            :obj:`'dr2_nominal'` (Prusti+ 2016, Brown+2018)
+            :obj:`'dr2_nominal'` (Prusti+ 2016, Brown+ 2018)
             Defaults to :obj:`'cog3_2020'`.
 
     Raises:
@@ -517,14 +519,23 @@ def fetch(version='cog3_2020', fname=None):
             was a problem connecting to the Dataverse.
     """
 
+    if not version in version_filenames:
+        raise ValueError('{0} not valid. Valid map names are: {1}'.format(version, list(version_filenames.keys())))
+
     requirements = {
         'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
         'cog3_2020': {'filename': 'cog_dr2_scanning_law_v2.csv'},
         'dr2_nominal': {'filename': 'DEOPTSK-1327_Gaia_scanlaw.csv.gz'},
     }[version]
+    #if version=='cog3_2020': local_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
+    #else: local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+    local_fname = os.path.join(data_dir(), 'cog', requirements['filename'])
 
-    if version=='cog3_2020': local_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
-    else: local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+    # Download gaps and fractions
+    fetch_utils.dataverse_download_doi(
+        '10.7910/DVN/ST8TSM',
+        os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
+        file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
 
     if (version=='dr2_nominal')&(fname is None):
         raise ValueError("\nNominal scanning law at ftp.cosmos.esa.int/GAIA_PUBLIC_DATA/GaiaScanningLaw/DEOPTSK-1327_Gaia_scanlaw.csv.gz.\n"\
@@ -546,12 +557,6 @@ def fetch(version='cog3_2020', fname=None):
             version,
             ', '.join(['"{}"'.format(k) for k in doi.keys()])
         ))
-
-    # Download gaps and fractions
-    fetch_utils.dataverse_download_doi(
-        '10.7910/DVN/ST8TSM',
-        os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
-        file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
 
     # Download the data
     fetch_utils.dataverse_download_doi(
