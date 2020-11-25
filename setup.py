@@ -117,7 +117,8 @@ setup(
         'healpy',
         'requests',
         'progressbar2',
-        'six'
+        'six',
+        'tqdm'
     ],
     include_package_data=True,
     test_suite='nose.collector',

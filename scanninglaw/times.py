@@ -69,11 +69,12 @@ class dr2_sl(ScanningLaw):
         if version=='cog': version='cog3_2020'
         if map_fname is None:
             map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
-        gaps_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(sample))
         fractions_fname = os.path.join(data_dir(), 'cog', fractions)
-        ephemeris_fname = os.path.join(data_dir(), 'cog', ephemeris)
 
-        print(ephemeris_fname)
+        local_dirname = '/'.join(os.path.dirname(__file__).split('/')[:-1])
+        gaps_fname = os.path.join(local_dirname, 'data', '{}.csv'.format(sample))
+        ephemeris_fname = os.path.join(local_dirname, 'data', ephemeris)
+
         gaia_ephem_data = pd.read_csv(ephemeris_fname,skiprows=64)
 
         t_start = time()
@@ -510,7 +511,10 @@ def fetch(version='cog3_2020', fname=None):
     doi = {
         'cogi_2020': '10.7910/DVN/OFRA78',
         'cog3_2020': '10.7910/DVN/MYIPLH',
-        'dr2_nominal': ''
+        'dr2_nominal': '',
+        'gaps_ast': '',
+        'gaps_spec': '',
+        'gaps_phot': ''
     }
     # Raise an error if the specified version of the map does not exist
     try:
@@ -520,6 +524,12 @@ def fetch(version='cog3_2020', fname=None):
             version,
             ', '.join(['"{}"'.format(k) for k in doi.keys()])
         ))
+
+    # Download gaps and fractions
+    fetch_utils.dataverse_download_doi(
+        '10.7910/DVN/ST8TSM',
+        os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
+        file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
 
     # Download the data
     fetch_utils.dataverse_download_doi(
