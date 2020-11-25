@@ -109,6 +109,7 @@ setup(
     author_email='douglasboubert@gmail.com',
     license='GPLv2',
     packages=['scanninglaw'],
+    package_data={'scanninglaw':['data/*.csv', 'data/*.txt']},
     install_requires=[
         'numpy',
         'scipy',

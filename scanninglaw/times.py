@@ -71,7 +71,7 @@ class dr2_sl(ScanningLaw):
             map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
         fractions_fname = os.path.join(data_dir(), 'cog', fractions)
 
-        local_dirname = '/'.join(os.path.dirname(__file__).split('/')[:-1])
+        local_dirname = os.path.dirname(__file__)
         gaps_fname = os.path.join(local_dirname, 'data', '{}.csv'.format(sample))
         ephemeris_fname = os.path.join(local_dirname, 'data', ephemeris)
 
