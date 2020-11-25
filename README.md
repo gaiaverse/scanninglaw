@@ -47,8 +47,8 @@ interpreter and running:
     >>> from scanninglaw.config import config
     >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
     >>>
-    >>> import scanninglaw.cog3_2020
-    >>> scanninglaw.cog3_2020.fetch()
+    >>> import scanninglaw.times
+    >>> scanninglaw.times.fetch()
 
 
 Querying the scanning law
