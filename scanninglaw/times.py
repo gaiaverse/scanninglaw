@@ -232,7 +232,7 @@ class dr2_sl(ScanningLaw):
         tree_source = spatial.cKDTree(xyz_source)
 
         # Iterate through scanning time steps
-        for _tidx in tqdm.tqdm_notebook(range(0,self.xyz_fov_1.shape[0])):
+        for _tidx in self.tqdm_foo(range(0,self.xyz_fov_1.shape[0]), disable=not self.progressbar):
             _t_now = self.tcb_at_gaia[_tidx]
             # Find all sources in scan window
             _in_fov = tree_source.query_ball_point([self.xyz_fov_1[_tidx].copy(order='C'),
@@ -302,7 +302,7 @@ class dr2_sl(ScanningLaw):
         nscan_fov2 = [0 for i in range(nsource)]
 
         # Iterate through scanning time steps
-        for _sidx in tqdm.tqdm_notebook(range(0,xyz_source.shape[0])):
+        for _sidx in self.tqdm_foo(range(0,xyz_source.shape[0]), disable=not self.progressbar):
             # Find all sources in scan window
             _in_fov1 = np.sort(self.tree_fov1.query_ball_point(xyz_source[_sidx].copy(order='C'), self.r_search))
             _in_fov2 = np.sort(self.tree_fov2.query_ball_point(xyz_source[_sidx].copy(order='C'), self.r_search))
@@ -405,7 +405,7 @@ class dr2_sl(ScanningLaw):
         fraction_fov2 = [[] for i in range(len(magidx))]
 
         # Iterate through scanning time steps
-        for _sidx in tqdm.tqdm_notebook(range(0,len(magidx))):
+        for _sidx in self.tqdm_foo(range(0,len(magidx)), disable=not self.progressbar):
 
             if magidx[_sidx]==-99:
                 fraction_fov1[_sidx] = [np.nan for i in range(len(tgaia_fov1[_sidx]))]
@@ -418,7 +418,7 @@ class dr2_sl(ScanningLaw):
         return fraction_fov1, fraction_fov1
 
     #@ensure_flat_icrs
-    def query(self, sources, return_counts=False, return_fractions=False, fov=12):
+    def query(self, sources, return_counts=False, return_fractions=False, fov=12, progress=False):
         """
         Returns the scanning law at the requested coordinates.
 
@@ -427,9 +427,10 @@ class dr2_sl(ScanningLaw):
                     (:obj:`scanninglaw.source.Source`): The coordinates to query.
 
         KwArgs:
-            return_counts
-            return_fractions
-            fov
+            return_counts (:obj:`bool`)
+            return_fractions (:obj:`bool`)
+            fov (:obj:`int`). Which fov to return 1, 2 or 12 for both FoVs
+            progress (:obj:`bool` or `str`). False - No progress bar. True - tqdm.tqdm progressbar. 'notebook' - tqdm.tqdm_notebook progress bar (for Jupyter notebooks)
 
         Returns:
             (:obj:`dict`): Observation times of each object by each FoV. Number of observations of each object by each FoV
@@ -437,6 +438,13 @@ class dr2_sl(ScanningLaw):
         """
 
         if not fov in (1,2,12): raise ValueError('Invalid value for kwarg fov. fov must be 1, 2 or 12.')
+
+        if progress=='notebook':
+            self.tqdm_foo = tqdm.tqdm_notebook
+            self.progressbar=True
+        else:
+            self.tqdm_foo = tqdm.tqdm
+            self.progressbar=bool(progress)
 
         if type(sources) == Source: coords = sources.coord.transform_to('icrs')
         else: coords = sources.transform_to('icrs')
