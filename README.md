@@ -59,10 +59,10 @@ Scanning laws are queried using Source objects, which are a variant on the
 object. This means that any coordinate system supported by `astropy` can be
 used as input. For example, we can query the Gaia DR2 scanning law as follows:
 
-    >>> import scanninglaw.cog_i as CoGI
+    >>> import scanninglaw.times as times
     >>> from scanninglaw.source import Source
     >>>
-    >>> dr2_sl = CoGI.dr2_sl()
+    >>> dr2_sl = times.dr2_sl()
     >>>
     >>> c = Source(
             '22h54m51.68s',
