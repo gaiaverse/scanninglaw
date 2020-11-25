@@ -12,7 +12,8 @@ Supported Scanning Laws
 
 The currently supported scanning laws are:
 
-1. Gaia DR2 scanning law (cog_i.dr2_sl, Boubert, Everall & Holl 2020, MNRAS)
+1. Gaia DR2 scanning law (cogi_2020, Boubert, Everall & Holl 2020, MNRAS)
+2. Gaia DR2 scanning law (cog3_2020, Boubert, Everall, Fraser, Gration & Holl 2020)
 
 To request addition of another sacnning law in this package, [file an issue on
 GitHub](https://github.com/gaiaverse/scanninglaw/issues), or submit a pull request.
