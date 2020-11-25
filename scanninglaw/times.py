@@ -48,7 +48,9 @@ class dr2_sl(ScanningLaw):
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, version='cog3_2020', sample='Astrometry',
+    def __init__(self, map_fname=None,
+                        version='cog3_2020', sample='Astrometry',
+                        return_fractions=False,
                         fractions='cog_dr2_gaps_and_fractions_v1.h5',
                         ephemeris='horizons_results_gaia.txt',
                         require_persistent=False, test=False):
@@ -58,30 +60,41 @@ class dr2_sl(ScanningLaw):
                 :obj:`None`, meaning that the default location is used.
             version (Optional[:obj:`str`]): The scanning law version to download. Valid versions
                 are :obj:`'cogi_2020'`
+                are :obj:`'cog3_2020'`
                 are :obj:`'dr2_nominal'`
-                Defaults to :obj:`'cogi_2020'`.
+                Defaults to :obj:`'cog3_2020'`.
             sample (Optional[:obj:`str`]): The Gaia data sample being used. Valid options are
                 are :obj:`'Astrometry'`
                 are :obj:`'Photometry'`
-                Defaults to :obj:`'Spectroscopy'`.
+                are :obj:`'Spectroscopy'`
+                Defaults to :obj:`'Astrometry'`.
+            fractions (Optional[:obj:`str`]): File containing fractions from CoG III.
+                Defaults to :obj:`'cog_dr2_gaps_and_fractions_v1.h5'`.
+            ephemeris (Optional[:obj:`str`]): File containing Gaia ephemeris data.
+                Defaults to :obj:`'horizons_results_gaia.txt'`.
         """
+
+        filenames = {'cogi_2020': 'cogi_2020',
+                     'cog3_2020': 'cog3_2020',
+                     'dr2_nominal': 'dr2_nominal'}
 
         if version=='cog': version='cog3_2020'
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
-        fractions_fname = os.path.join(data_dir(), 'cog', fractions)
-
+            map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(filenames[version]))
+        self.fractions_fname = os.path.join(data_dir(), 'cog', fractions)
         local_dirname = os.path.dirname(__file__)
         gaps_fname = os.path.join(local_dirname, 'data', '{}.csv'.format(sample))
         ephemeris_fname = os.path.join(local_dirname, 'data', ephemeris)
 
-        gaia_ephem_data = pd.read_csv(ephemeris_fname,skiprows=64)
+        if version=='cogi_2020': self.use_aberration=False
+        else: self.use_aberration=True
 
         t_start = time()
 
         # Load auxilliary data
         print('Loading auxilliary data ...')
-        ##### Load in scanning law
+
+        ## Load in scanning law
         _columns = ['JulianDayNumberRefEpoch2010TCB@Gaia', 'JulianDayNumberRefEpoch2010TCB@Barycentre_1', 'JulianDayNumberRefEpoch2010TCB@Barycentre_2',
                     'ra_FOV_1(deg)', 'dec_FOV_1(deg)', 'scanPositionAngle_FOV_1(deg)', 'ra_FOV_2(deg)', 'dec_FOV_2(deg)', 'scanPositionAngle_FOV_2(deg)']
         if test: _data = pd.read_csv(map_fname, usecols=_columns, nrows=1000000)
@@ -91,7 +104,7 @@ class dr2_sl(ScanningLaw):
         for j,k in zip(_columns,_keys): _box[k] = _data[j].values
         _box['scan_idx'] = np.arange(len(_box['ra_fov_1']))
 
-        ##### Load gaps
+        ## Load gaps
         _columns = ['start [rev]', 'end [rev]', 'persistent'];
         _data = pd.read_csv(gaps_fname, usecols=_columns)
         self._gaps = obmt2tcbgaia(np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T)
@@ -100,18 +113,10 @@ class dr2_sl(ScanningLaw):
             self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(1192.13)])[np.newaxis,:], self._gaps ))
             self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(3750.56), np.inf])[np.newaxis,:],  ))
 
-        ##### Load fraction
-        with h5py.File(fractions_fname, "r") as f:
-            scanninglaw_times = f['times'][:]
-            scanninglaw_gaps = f['gaps'][:]
-            scanninglaw_fractions = f['fractions'][:]
-        probability_time_series = scanninglaw_fractions*scanninglaw_gaps[np.newaxis,:]
-        print('Interpolating...')
-        #gap_interp = scipy.interpolate.interp1d(scanninglaw_times, scanninglaw_gaps, kind='nearest', bounds_error=False, fill_value='extrapolate')
-        self.probability_mag_interp = [scipy.interpolate.interp1d(scanninglaw_times, probability_time_series[j], kind='nearest', bounds_error=False, fill_value='extrapolate')
-                                    for j in range(probability_time_series.shape[0])]
+        ## Load fraction interpolations
+        if return_fractions: self.load_fractions()
 
-        # Load Gaia ephemeris data
+        ## Load Gaia ephemeris data
         # Define units
         speed_of_light_AU_per_day = 299792458.0*(86400.0/149597870.700/1e3)
         # Prepare ephem data
@@ -128,7 +133,7 @@ class dr2_sl(ScanningLaw):
         self.xyz_fov_2 = np.stack([np.cos(np.deg2rad(_box['ra_fov_2']))*np.cos(np.deg2rad(_box['dec_fov_2'])),
                               np.sin(np.deg2rad(_box['ra_fov_2']))*np.cos(np.deg2rad(_box['dec_fov_2'])),
                               np.sin(np.deg2rad(_box['dec_fov_2']))]).T
-        ##### Compute rotation matrices
+        ## Compute rotation matrices
         _xaxis = self.xyz_fov_1
         _zaxis = np.cross(self.xyz_fov_1,self.xyz_fov_2)
         _yaxis = -np.cross(_xaxis,_zaxis)
@@ -171,6 +176,20 @@ class dr2_sl(ScanningLaw):
         print('  auxilliary: {: >7.3f} s'.format(t_auxilliary-t_start))
         print('          sf: {: >7.3f} s'.format(t_sf-t_auxilliary))
         print('interpolator: {: >7.3f} s'.format(t_interpolator-t_sf))
+
+    def load_fractions(self):
+        ##### Load fraction
+        print('Loading and Interpolating fractions, this only needs to be done once for the class instance.')
+        print('Loading...')
+        with h5py.File(self.fractions_fname, "r") as f:
+            scanninglaw_times = f['times'][:]
+            scanninglaw_gaps = f['gaps'][:]
+            scanninglaw_fractions = f['fractions'][:]
+        probability_time_series = scanninglaw_fractions*scanninglaw_gaps[np.newaxis,:]
+        print('Interpolating...')
+        #gap_interp = scipy.interpolate.interp1d(scanninglaw_times, scanninglaw_gaps, kind='nearest', bounds_error=False, fill_value='extrapolate')
+        self.probability_mag_interp = [scipy.interpolate.interp1d(scanninglaw_times, probability_time_series[j], kind='nearest', bounds_error=False, fill_value='extrapolate')
+                                    for j in range(probability_time_series.shape[0])]
 
     def linearbisect(self, xyz_obj, xyz_line, tgaia_line):
 
@@ -221,8 +240,9 @@ class dr2_sl(ScanningLaw):
             if len(_in_fov) == 0:
                 continue
 
-            # xyz coordinates of sources corrected for aberration
-            _xyz = self.aberration(xyz_source[_in_fov], _t_now)
+            # xyz coordinates of sources corrected for aberration if not cogi_2020
+            if self.use_aberration:_xyz = self.aberration(xyz_source[_in_fov], _t_now)
+            else: _xyz = xyz_source[_in_fov]
             _uvw = np.einsum('ij,nj->ni',self._matrix[_tidx],_xyz)
 
             _l = np.rad2deg(np.arctan2(_uvw[:,1],_uvw[:,0]))
@@ -291,7 +311,8 @@ class dr2_sl(ScanningLaw):
 
             # xyz coordinates of sources corrected for aberration
             _t_now = self.tcb_at_gaia[_in_fov]
-            _xyz = self.aberration(xyz_source[_sidx], _t_now)
+            if self.use_aberration: _xyz = self.aberration(xyz_source[_sidx], _t_now)
+            else: _xyz = np.repeat([xyz_source[_sidx],], len(_in_fov), axis=0)
             _uvw = np.einsum('ikj,ij->ik',self._matrix[_in_fov],_xyz)
 
             _l = np.rad2deg(np.arctan2(_uvw[:,1],_uvw[:,0]))
@@ -445,6 +466,8 @@ class dr2_sl(ScanningLaw):
             if type(G)==np.ndarray: G = G.flatten()
             else: G = np.array([G])
 
+            if not hasattr(self, 'probability_mag_interp'): self.load_fractions()
+
             Gidx = self._get_magidx(G)
             fraction_fov1, fraction_fov2 = self._scanning_fraction(Gidx, tgaia_fov1, tgaia_fov2)
 
@@ -480,6 +503,9 @@ def fetch(version='cog3_2020', fname=None):
     Args:
         version (Optional[:obj:`str`]): The map version to download. Valid versions are
             :obj:`'cogi_2020'` (Boubert, Everall & Holl 2020)
+            :obj:`'cog3_2020'` (Boubert, Everall, Fraser, Gration & Holl 2020)
+            :obj:`'dr2_nominal'` (Prusti+ 2016, Brown+2018)
+            Defaults to :obj:`'cog3_2020'`.
 
     Raises:
         :obj:`ValueError`: The requested version of the map does not exist.
@@ -511,10 +537,6 @@ def fetch(version='cog3_2020', fname=None):
     doi = {
         'cogi_2020': '10.7910/DVN/OFRA78',
         'cog3_2020': '10.7910/DVN/MYIPLH',
-        'dr2_nominal': '',
-        'gaps_ast': '',
-        'gaps_spec': '',
-        'gaps_phot': ''
     }
     # Raise an error if the specified version of the map does not exist
     try:
