@@ -56,10 +56,13 @@ class InstallCommand(install):
         # install.do_egg_install(self) # Due to bug in setuptools that causes old-style install
         install.run(self)
 
+def fetch_cog3_2020():
+    import scanninglaw.times
+    scanninglaw.times.fetch()
 
 def fetch_cogi_2020():
-    import scanninglaw.cog_i
-    scanninglaw.cog_i.fetch()
+    import scanninglaw.times
+    scanninglaw.times.fetch(version='cogi_2020')
 
 class FetchCommand(distutils.cmd.Command):
     description = ('Fetch selection functions from the web, and store them in the data '
@@ -69,6 +72,7 @@ class FetchCommand(distutils.cmd.Command):
 
     map_funcs = {
         'cogi_2020': fetch_cogi_2020,
+        'cog3_2020': fetch_cog3_2020,
     }
 
     def initialize_options(self):
