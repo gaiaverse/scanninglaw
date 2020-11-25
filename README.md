@@ -36,9 +36,9 @@ Getting the Data
 
 To fetch the data for the GaiaDR2 scanning law, run:
 
-    python setup.py fetch --map-name=cogi_2020
+    python setup.py fetch --map-name=cog3_2020
 
-You can download the other scanning laws by changing "cogi_2020" to (other scanning laws will be added in future).
+You can download the other scanning laws by changing "cog3_2020" to (other scanning laws will be added in future).
 
 Alternatively, if you have used `pip` to install `scanninglaw`, then you can
 configure the data directory and download the data by opening up a python
@@ -47,8 +47,8 @@ interpreter and running:
     >>> from scanninglaw.config import config
     >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
     >>>
-    >>> import scanninglaw.cogi_2020
-    >>> scanninglaw.cogi_2020.fetch()
+    >>> import scanninglaw.cog3_2020
+    >>> scanninglaw.cog3_2020.fetch()
 
 
 Querying the scanning law
@@ -98,7 +98,8 @@ If you make use of this software in a publication, please always cite
 
 You should also cite the papers behind the scanning laws you use.
 
-1. cog_i.dr2_sl - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract).
+1. cogi_2020 - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract).
+2. cog3_2020 - Please cite Completeness of the Gaia-verse [Paper III](https://ui.adsabs.harvard.edu/abs/2020arXiv201110578B/abstract).
 
 Development
 -----------
