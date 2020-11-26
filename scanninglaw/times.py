@@ -489,19 +489,17 @@ class dr2_sl(ScanningLaw):
         tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
         tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
 
-        ret = ()
-        if (fov==1):
-            ret += (tgaia_fov1,)
-            if return_counts: ret += (nscan_fov1,)
-            if return_fractions: ret += (fraction_fov1,)
-        if (fov==2):
-            ret += (tgaia_fov2,)
-            if return_counts: ret += (nscan_fov2,)
-            if return_fractions: ret += (fraction_fov2,)
-        if (fov==12):
-            ret += ([tgaia_fov1,tgaia_fov2],)
-            if return_counts: ret += ([nscan_fov1, nscan_fov2],)
-            if return_fractions: ret += ([fraction_fov1,fraction_fov2],)
+        ret = {'times':[]}
+        if return_counts: ret['counts']=[]
+        if return_fractions: ret['fractions']=[]
+        if (fov in (1,12)):
+            ret['times'] += [tgaia_fov1,]
+            if return_counts: ret['counts'] += [nscan_fov1,]
+            if return_fractions: ret['fractions'] += [fraction_fov1,]
+        if (fov in (2,12)):
+            ret['times'] += [tgaia_fov2,]
+            if return_counts: ret['counts'] += [nscan_fov2,]
+            if return_fractions: ret['fractions'] += [fraction_fov2,]
 
         return ret
 
