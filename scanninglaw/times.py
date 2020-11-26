@@ -56,7 +56,7 @@ class dr2_sl(ScanningLaw):
 
     def __init__(self, map_fname=None,
                         version='cog3_2020', sample='Astrometry',
-                        return_fractions=False,
+                        load_fractions=False,
                         fractions='cog_dr2_gaps_and_fractions_v1.h5',
                         ephemeris='horizons_results_gaia.txt',
                         require_persistent=False, test=False):
@@ -116,7 +116,7 @@ class dr2_sl(ScanningLaw):
             self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(3750.56), np.inf])[np.newaxis,:],  ))
 
         ## Load fraction interpolations
-        if return_fractions: self.load_fractions()
+        if load_fractions: self.load_fractions()
 
         ## Load Gaia ephemeris data
         # Define units
@@ -418,7 +418,7 @@ class dr2_sl(ScanningLaw):
         return fraction_fov1, fraction_fov1
 
     #@ensure_flat_icrs
-    def query(self, sources, return_counts=False, return_fractions=False, fov=12, progress=False):
+    def query(self, sources, return_times=True, return_counts=True, return_fractions=False, fov=12, progress=False):
         """
         Returns the scanning law at the requested coordinates.
 
@@ -488,16 +488,19 @@ class dr2_sl(ScanningLaw):
 
         tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
         tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
+        nscan_fov1 = np.array(nscan_fov1).reshape(coord_shape)
+        nscan_fov2 = np.array(nscan_fov2).reshape(coord_shape)
 
-        ret = {'times':[]}
+        ret = {}
+        if return_times: ret['times']=[]
         if return_counts: ret['counts']=[]
         if return_fractions: ret['fractions']=[]
         if (fov in (1,12)):
-            ret['times'] += [tgaia_fov1,]
+            if return_times: ret['times'] += [tgaia_fov1,]
             if return_counts: ret['counts'] += [nscan_fov1,]
             if return_fractions: ret['fractions'] += [fraction_fov1,]
         if (fov in (2,12)):
-            ret['times'] += [tgaia_fov2,]
+            if return_times: ret['times'] += [tgaia_fov2,]
             if return_counts: ret['counts'] += [nscan_fov2,]
             if return_fractions: ret['fractions'] += [fraction_fov2,]
 
