@@ -90,6 +90,7 @@ EDR3 Nominal scanning law
 We've updated the repository for EDR3!
 
 Fetch the nominal scanning law from the Gaia website:
+
       >>> from scanninglaw.config import config
       >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
       >>>
@@ -97,6 +98,7 @@ Fetch the nominal scanning law from the Gaia website:
       >>> scanninglaw.times.fetch(version='dr3_nominal')
 
 And find when your star was observed:
+
       >>> import scanninglaw.times as times
       >>> from scanninglaw.source import Source
       >>>

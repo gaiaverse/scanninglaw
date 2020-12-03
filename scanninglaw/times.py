@@ -120,6 +120,8 @@ class dr2_sl(ScanningLaw):
         _box = {}
         for j,k in zip(_columns,_keys): _box[k] = _data[j].values
         _box['scan_idx'] = np.arange(len(_box['ra_fov_1']))
+        order = np.argsort(_box['tcb_at_gaia'])
+        for k in _box.keys(): _box[k] = _box[k][order]
 
         ## Load gaps
         _columns = ['start [rev]', 'end [rev]', 'persistent'];
