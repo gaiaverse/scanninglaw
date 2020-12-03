@@ -42,11 +42,24 @@ from . import fetch_utils
 
 from time import time
 
+version_colnames = {
+    'cogi_2020':  ['JulianDayNumberRefEpoch2010TCB@Gaia', 'JulianDayNumberRefEpoch2010TCB@Barycentre_1', 'JulianDayNumberRefEpoch2010TCB@Barycentre_2',
+                'ra_FOV_1(deg)', 'dec_FOV_1(deg)', 'scanPositionAngle_FOV_1(deg)', 'ra_FOV_2(deg)', 'dec_FOV_2(deg)', 'scanPositionAngle_FOV_2(deg)'],
+    'cog3_2020':  ['JulianDayNumberRefEpoch2010TCB@Gaia', 'JulianDayNumberRefEpoch2010TCB@Barycentre_1', 'JulianDayNumberRefEpoch2010TCB@Barycentre_2',
+                'ra_FOV_1(deg)', 'dec_FOV_1(deg)', 'scanPositionAngle_FOV_1(deg)', 'ra_FOV_2(deg)', 'dec_FOV_2(deg)', 'scanPositionAngle_FOV_2(deg)'],
+    'dr2_nominal':  ['JulianDayNumberRefEpoch2010TCB@Gaia', 'JulianDayNumberRefEpoch2010TCB@Barycentre_1', 'JulianDayNumberRefEpoch2010TCB@Barycentre_2',
+                'ra_FOV_1(deg)', 'dec_FOV_1(deg)', 'scanPositionAngle_FOV_1(deg)', 'ra_FOV_2(deg)', 'dec_FOV_2(deg)', 'scanPositionAngle_FOV_2(deg)'],
+    'dr3_nominal': ['jd_time', 'bjd_fov1', 'bjd_fov2',
+                'ra_fov1', 'dec_fov1', 'scan_angle_fov1', 'ra_fov2', 'dec_fov2', 'scan_angle_fov2']
+    }
+
 version_filenames = {
     'cogi_2020': 'cog_dr2_scanning_law_v1.csv',
     'cog3_2020': 'cog_dr2_scanning_law_v2.csv',
-    'dr2_nominal': 'DEOPTSK-1327_Gaia_scanlaw.csv'
+    'dr2_nominal': 'DEOPTSK-1327_Gaia_scanlaw.csv',
+    'dr3_nominal': 'CommandedScanLaw_001.csv'
     }
+
 
 
 class dr2_sl(ScanningLaw):
@@ -81,6 +94,9 @@ class dr2_sl(ScanningLaw):
         """
 
         if version=='cog': version='cog3_2020'
+
+        #if version=='dr3_nominal': sample+='_dr3'
+
         if map_fname is None:
             map_fname = os.path.join(data_dir(), 'cog', '{}'.format(version_filenames[version]))
         self.fractions_fname = os.path.join(data_dir(), 'cog', fractions)
@@ -97,8 +113,7 @@ class dr2_sl(ScanningLaw):
         print('Loading auxilliary data ...')
 
         ## Load in scanning law
-        _columns = ['JulianDayNumberRefEpoch2010TCB@Gaia', 'JulianDayNumberRefEpoch2010TCB@Barycentre_1', 'JulianDayNumberRefEpoch2010TCB@Barycentre_2',
-                    'ra_FOV_1(deg)', 'dec_FOV_1(deg)', 'scanPositionAngle_FOV_1(deg)', 'ra_FOV_2(deg)', 'dec_FOV_2(deg)', 'scanPositionAngle_FOV_2(deg)']
+        _columns = version_colnames[version]
         if test: _data = pd.read_csv(map_fname, usecols=_columns, nrows=1000000)
         else: _data = pd.read_csv(map_fname, usecols=_columns)
         _keys = ['tcb_at_gaia','tcb_at_bary1','tcb_at_bary2','ra_fov_1','dec_fov_1','angle_fov_1','ra_fov_2','dec_fov_2','angle_fov_2']
@@ -535,16 +550,18 @@ def fetch(version='cog3_2020', fname=None):
         'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
         'cog3_2020': {'filename': 'cog_dr2_scanning_law_v2.csv'},
         'dr2_nominal': {'filename': 'DEOPTSK-1327_Gaia_scanlaw.csv.gz'},
+        'dr3_nominal': {'filename': 'CommandedScanLaw_001.csv.gz'},
     }[version]
     #if version=='cog3_2020': local_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
     #else: local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
     local_fname = os.path.join(data_dir(), 'cog', requirements['filename'])
 
-    # Download gaps and fractions
-    fetch_utils.dataverse_download_doi(
-        '10.7910/DVN/ST8TSM',
-        os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
-        file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
+    if not (version=='dr3_nominal'):
+        # Download gaps and fractions
+        fetch_utils.dataverse_download_doi(
+            '10.7910/DVN/ST8TSM',
+            os.path.join(data_dir(), 'cog', 'cog_dr2_gaps_and_fractions_v1.h5'),
+            file_requirements={'filename': 'cog_dr2_gaps_and_fractions_v1.h5'})
 
     if (version=='dr2_nominal')&(fname is None):
         raise ValueError("\nNominal scanning law at ftp.cosmos.esa.int/GAIA_PUBLIC_DATA/GaiaScanningLaw/DEOPTSK-1327_Gaia_scanlaw.csv.gz.\n"\
@@ -557,6 +574,7 @@ def fetch(version='cog3_2020', fname=None):
     doi = {
         'cogi_2020': '10.7910/DVN/OFRA78',
         'cog3_2020': '10.7910/DVN/MYIPLH',
+        'dr3_nominal': 'http://cdn.gea.esac.esa.int/Gaia/gedr3/auxiliary/commanded_scan_law/CommandedScanLaw_001.csv.gz'
     }
     # Raise an error if the specified version of the map does not exist
     try:
@@ -567,8 +585,12 @@ def fetch(version='cog3_2020', fname=None):
             ', '.join(['"{}"'.format(k) for k in doi.keys()])
         ))
 
-    # Download the data
-    fetch_utils.dataverse_download_doi(
-        doi,
-        local_fname,
-        file_requirements=requirements)
+    if version.endswith('nominal'):
+        # Download the data
+        fetch_utils.download(doi, local_fname)
+    else:
+        # Download the data
+        fetch_utils.dataverse_download_doi(
+            doi,
+            local_fname,
+            file_requirements=requirements)
