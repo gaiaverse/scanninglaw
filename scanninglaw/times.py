@@ -102,7 +102,7 @@ class dr2_sl(ScanningLaw):
 
         if version=='cog': version='cog3_2020'
 
-        #if version=='dr3_nominal': sample+='_dr3'
+        if version=='dr3_nominal': sample+='_dr3'
 
         if map_fname is None:
             map_fname = os.path.join(data_dir(), 'cog', '{}'.format(version_filenames[version]))
@@ -131,13 +131,21 @@ class dr2_sl(ScanningLaw):
         for k in _box.keys(): _box[k] = _box[k][order]
 
         ## Load gaps
-        _columns = ['start [rev]', 'end [rev]', 'persistent'];
-        _data = pd.read_csv(gaps_fname, usecols=_columns)
-        self._gaps = obmt2tcbgaia(np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T)
-        if require_persistent: self._gaps=self._gaps[_data['persistent']==True]
-        if sample=='Astrometry':
-            self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(version_trange[version][0])])[np.newaxis,:], self._gaps ))
-            self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(version_trange[version][1]), np.inf])[np.newaxis,:],  ))
+        if version=='dr3_nominal':
+            _columns = ['tbeg', 'tend'];
+            _data = pd.read_csv(gaps_fname, usecols=_columns)
+            self._gaps = obmt2tcbgaia(np.vstack((_data['tbeg'].values, _data['tend'].values)).T)
+            if sample=='Astrometry_dr3':
+                self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(version_trange[version][0])])[np.newaxis,:], self._gaps ))
+                self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(version_trange[version][1]), np.inf])[np.newaxis,:],  ))
+        else:
+            _columns = ['start [rev]', 'end [rev]', 'persistent'];
+            _data = pd.read_csv(gaps_fname, usecols=_columns)
+            self._gaps = obmt2tcbgaia(np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T)
+            if require_persistent: self._gaps=self._gaps[_data['persistent']==True]
+            if sample=='Astrometry':
+                self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(version_trange[version][0])])[np.newaxis,:], self._gaps ))
+                self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(version_trange[version][1]), np.inf])[np.newaxis,:],  ))
 
         ## Load fraction interpolations
         if load_fractions: self.load_fractions()
