@@ -84,6 +84,34 @@ provide coordinate arrays. The following example uses both features:
     >>> print(dr2_sl(c))
 
 
+EDR3 Nominal scanning law
+-------------------------
+
+We've updated the repository for EDR3!
+
+Fetch the nominal scanning law from the Gaia website:
+
+      >>> from scanninglaw.config import config
+      >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
+      >>>
+      >>> import scanninglaw.times
+      >>> scanninglaw.times.fetch(version='dr3_nominal')
+
+And find when your star was observed:
+
+      >>> import scanninglaw.times as times
+      >>> from scanninglaw.source import Source
+      >>>
+      >>> dr3_sl = times.dr2_sl(version='dr3_nominal')
+      >>>
+      >>> c = Source(
+              '22h54m51.68s',
+              '-51d11m44.19s',
+              frame='icrs')
+      >>> print(dr3_sl(c))
+
+We haven't yet found the file for the DR3 published gaps but we'll incorporate those when we do!
+
 
 Documentation
 -------------

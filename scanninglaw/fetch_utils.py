@@ -317,7 +317,7 @@ def download_and_verify(url, md5sum, fname=None,
     return fname
 
 
-def download(url, fname=None):
+def download(url, fname=None, verbose=True, chunk_size=1024):
     """
     Downloads a file.
 
@@ -333,6 +333,7 @@ def download(url, fname=None):
         requests.exceptions.HTTPError: There was a problem connecting to the
             URL.
     """
+    print('downloading %s' % fname)
     # Determine the filename
     if fname is None:
         fname = url.split('/')[-1]
@@ -346,8 +347,34 @@ def download(url, fname=None):
             print(r.text)
             raise error
 
+        # with open(fname, 'wb') as f:
+        #     shutil.copyfileobj(r.raw, f)
+
+        sig = hashlib.md5()
+
         with open(fname, 'wb') as f:
-            shutil.copyfileobj(r.raw, f)
+            content_length = r.headers.get('content-length')
+            if content_length is not None:
+                content_length = int(content_length)
+            bar = FileTransferProgressBar(content_length)
+
+            for k,chunk in enumerate(r.iter_content(chunk_size=chunk_size)):
+                f.write(chunk)
+                sig.update(chunk)
+
+                if verbose:
+                    bar_val = chunk_size*(k+1)
+                    if content_length is not None:
+                        bar_val = min(bar_val, content_length)
+                    bar.update(bar_val)
+            print('')
+
+    if fname.endswith('.gz'):
+        fname_zip = fname; fname = fname_zip[:-3]
+        with gzip.open(fname_zip, 'rb') as f_in:
+            with open(fname, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(fname_zip)
 
     return fname
 
