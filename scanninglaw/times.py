@@ -136,8 +136,8 @@ class dr2_sl(ScanningLaw):
         self._gaps = obmt2tcbgaia(np.vstack((_data['start [rev]'].values, _data['end [rev]'].values)).T)
         if require_persistent: self._gaps=self._gaps[_data['persistent']==True]
         if sample=='Astrometry':
-            self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(version_trange[verions][0])])[np.newaxis,:], self._gaps ))
-            self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(version_trange[verions][1]), np.inf])[np.newaxis,:],  ))
+            self._gaps = np.vstack((np.array([-np.inf, obmt2tcbgaia(version_trange[version][0])])[np.newaxis,:], self._gaps ))
+            self._gaps = np.vstack(( self._gaps, np.array([obmt2tcbgaia(version_trange[version][1]), np.inf])[np.newaxis,:],  ))
 
         ## Load fraction interpolations
         if load_fractions: self.load_fractions()
