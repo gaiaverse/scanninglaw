@@ -333,10 +333,12 @@ def download(url, fname=None, verbose=True, chunk_size=1024):
         requests.exceptions.HTTPError: There was a problem connecting to the
             URL.
     """
-    print('downloading %s' % fname)
+
     # Determine the filename
     if fname is None:
         fname = url.split('/')[-1]
+
+    print('Downloading %s' % fname)
 
     # Stream the URL as a file, copying to local disk
     with contextlib.closing(requests.get(url, stream=True)) as r:
@@ -378,6 +380,31 @@ def download(url, fname=None, verbose=True, chunk_size=1024):
 
     return fname
 
+def search_url(url):
+    """
+    Doesn't work...
+
+    Fetches metadata pertaining to a URL
+
+    Args:
+        url (str): url of dataset
+
+    Raises:
+        requests.exceptions.HTTPError: The given url does not exist, or there
+            was a problem connecting.
+    """
+    print('requesting')
+    r = requests.get(url, stream=True)
+    print('requested')
+
+    try:
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as error:
+        print('Error looking up URL "{}".'.format(url))
+        print(r.text)
+        raise error
+
+    return json.loads(r.text)
 
 def dataverse_search_doi(doi):
     """

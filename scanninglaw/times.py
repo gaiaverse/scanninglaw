@@ -247,7 +247,7 @@ class dr2_sl(ScanningLaw):
 
         return _xyz
 
-    def _scanning_law(self, xyz_source):
+    def _scanning_law(self, xyz_source, return_boffset=False):
 
         # Run this code for large numbers of sources (5 million +)
 
@@ -258,6 +258,8 @@ class dr2_sl(ScanningLaw):
 
         tgaia_fov1 = [[] for i in range(nsource)]
         tgaia_fov2 = [[] for i in range(nsource)]
+        b_fov1 = [[] for i in range(nsource)]
+        b_fov2 = [[] for i in range(nsource)]
         nscan_fov1 = [0 for i in range(nsource)]
         nscan_fov2 = [0 for i in range(nsource)]
 
@@ -309,15 +311,17 @@ class dr2_sl(ScanningLaw):
                 for ii in range(n_fov1):
                     _sidx = _valid[ii]
                     tgaia_fov1[_sidx].append(tcbgaia_fov1[ii])
+                    b_fov1[_sidx].append(_b[_where[ii]])
                     nscan_fov1[_sidx] += 1
                     #print(self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
                 for ii in range(len(_valid)-n_fov1):
                     _sidx = _valid[ii+n_fov1]
                     tgaia_fov2[_sidx].append(tcbgaia_fov2[ii])
+                    b_fov2[_sidx].append(_b[_where[ii]])
                     nscan_fov2[_sidx] += 1
                     #print(self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
 
-        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
+        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2
 
     def _scanning_law_inverse(self, xyz_source):
 
@@ -330,6 +334,8 @@ class dr2_sl(ScanningLaw):
 
         tgaia_fov1 = [[] for i in range(nsource)]
         tgaia_fov2 = [[] for i in range(nsource)]
+        b_fov1 = [[] for i in range(nsource)]
+        b_fov2 = [[] for i in range(nsource)]
         nscan_fov1 = [0 for i in range(nsource)]
         nscan_fov2 = [0 for i in range(nsource)]
 
@@ -374,6 +380,7 @@ class dr2_sl(ScanningLaw):
                     condition_gap1 = condition_gap1&( (tcbgaia_fov1<self._gaps[ii,0])|(tcbgaia_fov1>self._gaps[ii,1]) )
 
                 tgaia_fov1[_sidx] = list(tcbgaia_fov1[condition_gap1])
+                b_fov1[_sidx] = list(_b[condition][:n_fov1][condition_fov1][condition_gap1])
                 nscan_fov1[_sidx] = np.sum(condition_gap1)
 
             if n_fov2>0:
@@ -391,9 +398,10 @@ class dr2_sl(ScanningLaw):
                     condition_gap2 = condition_gap2&( (tcbgaia_fov2<self._gaps[ii,0])|(tcbgaia_fov2>self._gaps[ii,1]) )
 
                 tgaia_fov2[_sidx] = list(tcbgaia_fov2[condition_gap2])
+                b_fov2[_sidx] = list(_b[condition][n_fov1:][condition_fov2][condition_gap2])
                 nscan_fov2[_sidx] = np.sum(condition_gap2)
 
-        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2
+        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2
 
     def _get_magidx(self, G):
 
@@ -447,10 +455,11 @@ class dr2_sl(ScanningLaw):
             fraction_fov1[_sidx] = self.probability_mag_interp[magidx[_sidx]](tgaia_fov1[_sidx])
             fraction_fov2[_sidx] = self.probability_mag_interp[magidx[_sidx]](tgaia_fov2[_sidx])
 
-        return fraction_fov1, fraction_fov1
+        return fraction_fov1, fraction_fov2
 
     #@ensure_flat_icrs
-    def query(self, sources, return_times=True, return_counts=True, return_fractions=False, fov=12, progress=False):
+    def query(self, sources, return_times=True, return_counts=True, return_fractions=False,
+                             return_acoffset=False, fov=12, progress=False):
         """
         Returns the scanning law at the requested coordinates.
 
@@ -495,8 +504,8 @@ class dr2_sl(ScanningLaw):
 
         # Evaluate selection function
         if xyz_source.shape[0]>5e6:
-              tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law(xyz_source)
-        else: tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2 = self._scanning_law_inverse(xyz_source)
+              tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2 = self._scanning_law(xyz_source)
+        else: tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2 = self._scanning_law_inverse(xyz_source)
 
         # Extract Gaia G magnitude
         try: G = sources.photometry.measurement['gaia_g']; G_given = True
@@ -513,13 +522,17 @@ class dr2_sl(ScanningLaw):
             Gidx = self._get_magidx(G)
             fraction_fov1, fraction_fov2 = self._scanning_fraction(Gidx, tgaia_fov1, tgaia_fov2)
 
-            tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
-            tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
+            # tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
+            # tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
+            # b_fov1 = np.array(b_fov1).reshape(coord_shape)
+            # b_fov2 = np.array(b_fov2).reshape(coord_shape)
             fraction_fov1 = np.array(fraction_fov1).reshape(coord_shape)
             fraction_fov2 = np.array(fraction_fov2).reshape(coord_shape)
 
         tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
         tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
+        b_fov1 = np.array(b_fov1).reshape(coord_shape)
+        b_fov2 = np.array(b_fov2).reshape(coord_shape)
         nscan_fov1 = np.array(nscan_fov1).reshape(coord_shape)
         nscan_fov2 = np.array(nscan_fov2).reshape(coord_shape)
 
@@ -527,14 +540,17 @@ class dr2_sl(ScanningLaw):
         if return_times: ret['times']=[]
         if return_counts: ret['counts']=[]
         if return_fractions: ret['fractions']=[]
+        if return_acoffset: ret['acoffset']=[]
         if (fov in (1,12)):
             if return_times: ret['times'] += [tgaia_fov1,]
             if return_counts: ret['counts'] += [nscan_fov1,]
             if return_fractions: ret['fractions'] += [fraction_fov1,]
+            if return_acoffset: ret['acoffset'] += [b_fov1,]
         if (fov in (2,12)):
             if return_times: ret['times'] += [tgaia_fov2,]
             if return_counts: ret['counts'] += [nscan_fov2,]
             if return_fractions: ret['fractions'] += [fraction_fov2,]
+            if return_acoffset: ret['acoffset'] += [b_fov2,]
 
         return ret
 
@@ -604,7 +620,8 @@ def fetch(version='cog3_2020', fname=None):
 
     if version.endswith('nominal'):
         # Download the data
-        fetch_utils.download(doi, local_fname)
+        fetch_utils.download(doi,
+                            fname=os.path.join(data_dir(), 'cog', requirements['filename']))#, local_fname, file_requirements=requirements)
     else:
         # Download the data
         fetch_utils.dataverse_download_doi(
