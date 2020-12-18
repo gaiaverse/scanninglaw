@@ -45,12 +45,13 @@ Alternatively, if you have used `pip` to install `scanninglaw`, then you can
 configure the data directory and download the data by opening up a python
 interpreter and running:
 
-    >>> from scanninglaw.config import config
-    >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
-    >>>
-    >>> import scanninglaw.times
-    >>> scanninglaw.times.fetch()
+```python
+from scanninglaw.config import config
+config['data_dir'] = '/path/where/you/want/large/data/files/stored'
 
+import scanninglaw.times
+scanninglaw.times.fetch()
+```
 
 Querying the scanning law
 -----------------
@@ -60,28 +61,32 @@ Scanning laws are queried using Source objects, which are a variant on the
 object. This means that any coordinate system supported by `astropy` can be
 used as input. For example, we can query the Gaia DR2 scanning law as follows:
 
-    >>> import scanninglaw.times as times
-    >>> from scanninglaw.source import Source
-    >>>
-    >>> dr2_sl = times.dr2_sl()
-    >>>
-    >>> c = Source(
-            '22h54m51.68s',
-            '-51d11m44.19s',
-            frame='icrs')
-    >>> print(dr2_sl(c))
+```python
+import scanninglaw.times as times
+from scanninglaw.source import Source
+
+dr2_sl = times.dr2_sl()
+
+c = Source(
+      '22h54m51.68s',
+      '-51d11m44.19s',
+      frame='icrs')
+print(dr2_sl(c))
+```
 
 
 Above, we have used the ICRS coordinate system (the inputs are RA and Dec). We
 can use other coordinate systems, such as Galactic coordinates, and we can
 provide coordinate arrays. The following example uses both features:
 
-    >>> c = Source(
-            [75.00000000, 130.00000000],
-            [-89.00000000, 10.00000000],
-            frame='galactic',
-            unit='deg')
-    >>> print(dr2_sl(c))
+```python
+c = Source(
+      [75.00000000, 130.00000000],
+      [-89.00000000, 10.00000000],
+      frame='galactic',
+      unit='deg')
+print(dr2_sl(c))
+```
 
 
 EDR3 Nominal scanning law
@@ -91,24 +96,28 @@ We've updated the repository for EDR3!
 
 Fetch the nominal scanning law from the Gaia website:
 
-      >>> from scanninglaw.config import config
-      >>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
-      >>>
-      >>> import scanninglaw.times
-      >>> scanninglaw.times.fetch(version='dr3_nominal')
+```python
+>>> from scanninglaw.config import config
+>>> config['data_dir'] = '/path/where/you/want/large/data/files/stored'
+>>>
+>>> import scanninglaw.times
+>>> scanninglaw.times.fetch(version='dr3_nominal')
+```
 
 And find when your star was observed:
 
-      >>> import scanninglaw.times as times
-      >>> from scanninglaw.source import Source
-      >>>
-      >>> dr3_sl = times.dr2_sl(version='dr3_nominal')
-      >>>
-      >>> c = Source(
-              '22h54m51.68s',
-              '-51d11m44.19s',
-              frame='icrs')
-      >>> print(dr3_sl(c))
+```python
+import scanninglaw.times as times
+from scanninglaw.source import Source
+
+dr3_sl = times.dr2_sl(version='dr3_nominal')
+
+c = Source(
+        '22h54m51.68s',
+        '-51d11m44.19s',
+        frame='icrs')
+print(dr3_sl(c))
+```
 
 We haven't yet found the file for the DR3 published gaps but we'll incorporate those when we do!
 
