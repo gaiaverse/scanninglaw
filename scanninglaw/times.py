@@ -247,7 +247,7 @@ class dr2_sl(ScanningLaw):
 
         return _xyz
 
-    def _scanning_law(self, xyz_source, return_boffset=False):
+    def _scanning_law(self, xyz_source):
 
         # Run this code for large numbers of sources (5 million +)
 
@@ -620,8 +620,7 @@ def fetch(version='cog3_2020', fname=None):
 
     if version.endswith('nominal'):
         # Download the data
-        fetch_utils.download(doi,
-                            fname=os.path.join(data_dir(), 'cog', requirements['filename']))#, local_fname, file_requirements=requirements)
+        fetch_utils.download(doi, fname=local_fname) #file_requirements=requirements)
     else:
         # Download the data
         fetch_utils.dataverse_download_doi(
