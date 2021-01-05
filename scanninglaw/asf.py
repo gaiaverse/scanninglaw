@@ -73,7 +73,7 @@ class asf(ScanningLaw):
 
         # Load auxilliary data
         print('Loading auxilliary data ...')
-        _box={}; keys=['magbin', 'varal_50', 'varal_16', 'varal_84', 'r_50']
+        _box={}; keys=['magbin', 'varal_50', 'varal_16', 'varal_84', 'r_50', 'good_frac_50']
         with h5py.File(self.asf_fname, 'r') as hf:
             for key in keys:
                 _box[key]=hf[key][...]
@@ -81,7 +81,9 @@ class asf(ScanningLaw):
             self.matrix_map=hf['matrix_map'][...]
             #self.D_array = hf['D'][...]
 
-        self.sigAL_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, np.sqrt(_box['varal_50'] * (1+_box['r_50'] * (92/520)**2)))
+        # R AC already implicitly included in varal_50 which is from <ngood/(P_aa + P_dd)>
+        self.rho_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, _box['good_frac_50']/_box['varal_50'])
+        #self.sigAL_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, np.sqrt(_box['varal_50'] * (1+_box['r_50'] * (92/520)**2)))
 
         self.sp_bins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
                                  20, 20.3, 20.4, 20.5, 20.6, 20.7,20.8,20.9, 21])
@@ -160,10 +162,10 @@ class asf(ScanningLaw):
                     D[...,self.matrix_map[i,0]]*(8+6./7)
 
         covariance = np.moveaxis(np.linalg.inv(precision),[-2,-1],[0,1])
-        sigma_al = self.sigAL_interp(G)
+        rho = self.rho_interp(G)
 
-        if singular: return covariance[:,:,0]*sigma_al**2
-        return covariance*sigma_al**2
+        if singular: return covariance[:,:,0]/rho
+        return covariance/rho
 
 
 def fetch(version='cogiv_2020', fname=None):
@@ -184,10 +186,10 @@ def fetch(version='cogiv_2020', fname=None):
             was a problem connecting to the Dataverse.
     """
 
-    local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
+    #local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
 
 
-    doi = {'cogiv_2020': '10.7910/DVN/EC50UZ'}
+    doi = {'cogiv_2020': '10.7910/DVN/FURYBN'}
     # Raise an error if the specified version of the map does not exist
     try:
         doi = doi[version]
@@ -198,8 +200,9 @@ def fetch(version='cogiv_2020', fname=None):
         ))
 
     requirements = {
-        'cogiv_2020': {'filename': 'gzip file name'},#cog_dr2_scanning_law_v1.csv.gz'},
+        'cogiv_2020': {'filename': 'cog_dr2_asf_v1.h5'},
     }[version]
+    local_fname = os.path.join(data_dir(), 'cog', requirements['filename'])
 
     # Download the data
     fetch_utils.dataverse_download_doi(
