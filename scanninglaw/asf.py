@@ -43,48 +43,49 @@ from . import fetch_utils
 from time import time
 
 
-class dr2_asf(ScanningLaw):
+class asf(ScanningLaw):
     """
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
 
-    def __init__(self, map_fname=None, version='cogi_2020', sample='Astrometry',
-                        fractions='cog_dr2_gaps_and_fractions_v1.h5', require_persistent=False, test=False):
+    def __init__(self, map_fname=None, version='cogiv_2020', sample='Astrometry'):
         """
         Args:
             map_fname (Optional[:obj:`str`]): Filename of the Boubert,Everall,Holl 2020 scanning law. Defaults to
                 :obj:`None`, meaning that the default location is used.
             version (Optional[:obj:`str`]): The scanning law version to download. Valid versions
-                are :obj:`'cogi_2020'`
-                are :obj:`'dr2_nominal'`
-                Defaults to :obj:`'cogi_2020'`.
+                are :obj:`'cogiv_2020'`
+                Defaults to :obj:`'cogiv_2020'`.
             sample (Optional[:obj:`str`]): The Gaia data sample being used. Valid options are
                 are :obj:`'Astrometry'`
                 are :obj:`'Photometry'`
-                Defaults to :obj:`'Spectroscopy'`.
+                are :obj:`'Spectroscopy'`
+                Defaults to :obj:`'Astrometry'`.
         """
 
-        if version=='cog': version='cogi_2020'
+        if version=='cog': version='cogiv_2020'
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(version))
-        gaps_fname = os.path.join(data_dir(), 'cog', '{}.csv'.format(sample))
-        fractions_fname = os.path.join(data_dir(), 'cog', fractions)
+            map_fname = os.path.join(data_dir(), 'cog', '{}'.format('cog_dr2_asf_v1.h5'))
 
-        sigma_al_fname = '/data/asfe2/Projects/gaia_psf/sigmaAL_5d_mag_med.h'
-        self.cov_filename = '/data/asfe2/Projects/gaia_psf/scanninglaw_prec5d_2015p5T_bisect_128_maggaps_fracweights.h'
+        self.asf_fname = os.path.join(data_dir(), 'cog', map_fname)
 
         t_start = time()
 
         # Load auxilliary data
         print('Loading auxilliary data ...')
-        _box = {}
-        with h5py.File(sigma_al_fname, 'r') as hf:
-            for key in hf.keys():
-                _box[key] = hf[key][...]
-        self.sigAL_interp = scipy.interpolate.interp1d(_box['magbin'], _box['sigmaal_50'] * (1+_box['r_50'] * (92/520)**2))
+        _box={}; keys=['magbin', 'varal_50', 'varal_16', 'varal_84', 'r_50', 'good_frac_50']
+        with h5py.File(self.asf_fname, 'r') as hf:
+            for key in keys:
+                _box[key]=hf[key][...]
+            self._nside = hf['nside'][...]
+            self.matrix_map=hf['matrix_map'][...]
+            #self.D_array = hf['D'][...]
 
-        self._nside = 128
-        self.magbins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
+        # R AC already implicitly included in varal_50 which is from <ngood/(P_aa + P_dd)>
+        self.rho_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, _box['good_frac_50']/_box['varal_50'])
+        #self.sigAL_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, np.sqrt(_box['varal_50'] * (1+_box['r_50'] * (92/520)**2)))
+
+        self.sp_bins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
                                  20, 20.3, 20.4, 20.5, 20.6, 20.7,20.8,20.9, 21])
 
         t_auxilliary = time()
@@ -94,7 +95,7 @@ class dr2_asf(ScanningLaw):
         print('t = {:.3f} s'.format(t_finish - t_start))
         print('  auxilliary: {: >7.3f} s'.format(t_auxilliary-t_start))
 
-    def _get_magidx(self, G):
+    def _get_spidx(self, G):
 
         """
         Returns the magnitude bin ids for the given magnitudes.
@@ -110,10 +111,10 @@ class dr2_asf(ScanningLaw):
         try: magidx = np.zeros(G.shape).astype(int) - 1
         except AttributeError:  magidx = np.zeros(np.array([G]).shape).astype(int) - 1
 
-        for mag in self.magbins:
+        for mag in self.sp_bins:
             magidx += (G>mag).astype(int)
 
-        magidx[magidx==len(self.magbins)-1] = -99
+        magidx[magidx==len(self.sp_bins)-1] = -99
         magidx[magidx==-1] = -99
 
         return magidx
@@ -147,27 +148,24 @@ class dr2_asf(ScanningLaw):
 
         # Extract Gaia G magnitude
         G = sources.photometry.measurement['gaia_g']
-        G_idx = self._get_magidx(G)
+        sp_idx = self._get_spidx(G)
 
-        _box = {};  keys=['D'];
-        D = np.zeros((len(G_idx), 15))
-        magidxs = np.arange(len(self.magbins)-1).astype(str)
-        for ii in range(len(magidxs)):
-            with h5py.File(self.cov_filename, 'r') as hf:
-                matrix_map=hf['matrix_map'][...]
-                for key in keys:
-                    D[G_idx==ii] = hf[magidxs[ii]][key][hpxidx[G_idx==ii]]
+        D = np.zeros(hpxidx.shape+(15,))
+        with h5py.File(self.asf_fname, 'r') as hf:
+            for ii in range(len(self.sp_bins)-1):
+                D[sp_idx==ii]=hf['D'][str(ii)][hpxidx[sp_idx==ii]]
 
-        precision = np.zeros((5,5,D[:,0].shape[0]))
-        for i in range(matrix_map.shape[0]):
-            precision[matrix_map[i,1], matrix_map[i,2]] = \
-                D[:,matrix_map[i,0]]*(8+6./7)
+        #D = self.D_array[hpxidx,:,sp_idx]
+        precision = np.zeros(hpxidx.shape+(5,5))
+        for i in range(self.matrix_map.shape[0]):
+            precision[...,self.matrix_map[i,1], self.matrix_map[i,2]] = \
+                    D[...,self.matrix_map[i,0]]*(8+6./7)
 
-        covariance = np.moveaxis(np.linalg.inv(np.moveaxis(precision,2,0)),0,2)
-        sigma_al = self.sigAL_interp(G)
+        covariance = np.moveaxis(np.linalg.inv(precision),[-2,-1],[0,1])
+        rho = self.rho_interp(G)
 
-        if singular: return covariance[:,:,0]*sigma_al**2
-        return covariance*sigma_al**2
+        if singular: return covariance[:,:,0]/rho
+        return covariance/rho
 
 
 def fetch(version='cogiv_2020', fname=None):
@@ -188,20 +186,10 @@ def fetch(version='cogiv_2020', fname=None):
             was a problem connecting to the Dataverse.
     """
 
-    local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
-
-    if (version=='dr2_nominal')&(fname is None):
-        raise ValueError("\nNominal scanning law at ftp.cosmos.esa.int/GAIA_PUBLIC_DATA/GaiaScanningLaw/DEOPTSK-1327_Gaia_scanlaw.csv.gz.\n"\
-                          "Download .gz file using ftp client then run fetch(version='dr2_nominal', fname='path/to/file'). ")
-    elif version=='dr2_nominal':
-        fetch_utils.move_file_location(fname, local_fname)
-        return None
+    #local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
 
 
-    doi = {
-        'cogi_2020': '10.7910/DVN/OFRA78',
-        'dr2_nominal': ''
-    }
+    doi = {'cogiv_2020': '10.7910/DVN/FURYBN'}
     # Raise an error if the specified version of the map does not exist
     try:
         doi = doi[version]
@@ -212,8 +200,9 @@ def fetch(version='cogiv_2020', fname=None):
         ))
 
     requirements = {
-        'cogi_2020': {'filename': 'cog_dr2_scanning_law_v1.csv.gz'},
+        'cogiv_2020': {'filename': 'cog_dr2_asf_v1.h5'},
     }[version]
+    local_fname = os.path.join(data_dir(), 'cog', requirements['filename'])
 
     # Download the data
     fetch_utils.dataverse_download_doi(
