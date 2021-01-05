@@ -14,6 +14,7 @@ The currently supported scanning laws are:
 
 1. Gaia DR2 scanning law (cogi_2020, Boubert, Everall & Holl 2020, MNRAS)
 2. Gaia DR2 scanning law (cog3_2020, Boubert, Everall, Fraser, Gration & Holl 2020)
+2. Gaia DR2 Astrometry Spread Function (cogiv_2020, Everall, Boubert, Koposov, Smith & Holl 2020)
 
 To request addition of another sacnning law in this package, [file an issue on
 GitHub](https://github.com/gaiaverse/scanninglaw/issues), or submit a pull request.
@@ -88,6 +89,39 @@ c = Source(
 print(dr2_sl(c))
 ```
 
+Query the Astrometry Spread Function
+------------------------------------
+
+To estimate Gaia's expected 5D astrometry covariance for any source from the
+Astrometry Spread Function, we've added a module to the ``scanninglaw`` package.
+
+Fetch the ASF data from Harvard Dataverse:
+
+```python
+from scanninglaw.config import config
+config['data_dir'] = '/path/where/you/want/large/data/files/stored'
+
+import scanninglaw.asf
+scanninglaw.asf.fetch()
+```
+
+And find the expected covariance of your source:
+
+```python
+import scanninglaw.asf as asf
+from scanninglaw.source import Source
+
+dr2_asf = asf.asf(version='cogiv_2020')
+
+c = Source(
+        '22h54m51.68s',
+        '-51d11m44.19s',
+        photometry={'gaia_g':16.02},
+        frame='icrs')
+dr2_asf(c)
+```
+
+
 
 EDR3 Nominal scanning law
 -------------------------
@@ -138,6 +172,7 @@ You should also cite the papers behind the scanning laws you use.
 
 1. cogi_2020 - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract).
 2. cog3_2020 - Please cite Completeness of the Gaia-verse [Paper III](https://ui.adsabs.harvard.edu/abs/2020arXiv201110578B/abstract).
+3. cogiv_2020 (for the ASF) - Please cite Completeness of the Gaia-verse [Accepted in MNRAS, will be on arXiv soon!].
 
 Development
 -----------
