@@ -411,7 +411,7 @@ class dr2_sl(ScanningLaw):
                 tgaia_fov2[_sidx] = list(tcbgaia_fov2[condition_gap2])
                 b_fov2[_sidx] = list(_b[condition][n_fov1:][condition_fov2][condition_gap2])
                 nscan_fov2[_sidx] = np.sum(condition_gap2)
-                angle_fov2[_sidx] = list(self.angle_interp[1](tcbgaia_fov2[condition_gap1]))
+                angle_fov2[_sidx] = list(self.angle_interp[1](tcbgaia_fov2[condition_gap2]))
 
         return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2, angle_fov1, angle_fov2
 

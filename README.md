@@ -28,9 +28,9 @@ then run:
 
     python setup.py install --large-data-dir=/path/where/you/want/large/data/files/stored
 
-Alternatively, you can use the Python package manager `pip`:
+<!-- Alternatively, you can use the Python package manager `pip`:
 
-    pip install scanninglaw
+    pip install scanninglaw -->
 
 
 Getting the Data
