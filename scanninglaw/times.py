@@ -130,6 +130,12 @@ class dr2_sl(ScanningLaw):
         order = np.argsort(_box['tcb_at_gaia'])
         for k in _box.keys(): _box[k] = _box[k][order]
 
+        # Interpolate scan angles
+        self.angle_interp = [scipy.interpolate.interp1d(_box['tcb_at_gaia'], _box['angle_fov_1'],
+                                                   bounds_error=False, fill_value=0.),\
+                            scipy.interpolate.interp1d(_box['tcb_at_gaia'], _box['angle_fov_2'],
+                                                   bounds_error=False, fill_value=0.)]
+
         ## Load gaps
         if version=='dr3_nominal':
             _columns = ['tbeg', 'tend'];
@@ -311,12 +317,14 @@ class dr2_sl(ScanningLaw):
                 for ii in range(n_fov1):
                     _sidx = _valid[ii]
                     tgaia_fov1[_sidx].append(tcbgaia_fov1[ii])
+                    angle_fov1[_sidx].append(self.angle_interp[0](tcbgaia_fov1[ii]))
                     b_fov1[_sidx].append(_b[_where[ii]])
                     nscan_fov1[_sidx] += 1
                     #print(self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
                 for ii in range(len(_valid)-n_fov1):
                     _sidx = _valid[ii+n_fov1]
                     tgaia_fov2[_sidx].append(tcbgaia_fov2[ii])
+                    angle_fov2[_sidx].append(self.angle_interp[1](tcbgaia_fov2[ii]))
                     b_fov2[_sidx].append(_b[_where[ii]])
                     nscan_fov2[_sidx] += 1
                     #print(self.tcb_at_gaia[max(0,_tidx-1):_tidx+2][:2])
@@ -334,6 +342,8 @@ class dr2_sl(ScanningLaw):
 
         tgaia_fov1 = [[] for i in range(nsource)]
         tgaia_fov2 = [[] for i in range(nsource)]
+        angle_fov1 = [[] for i in range(nsource)]
+        angle_fov2 = [[] for i in range(nsource)]
         b_fov1 = [[] for i in range(nsource)]
         b_fov2 = [[] for i in range(nsource)]
         nscan_fov1 = [0 for i in range(nsource)]
@@ -382,6 +392,7 @@ class dr2_sl(ScanningLaw):
                 tgaia_fov1[_sidx] = list(tcbgaia_fov1[condition_gap1])
                 b_fov1[_sidx] = list(_b[condition][:n_fov1][condition_fov1][condition_gap1])
                 nscan_fov1[_sidx] = np.sum(condition_gap1)
+                angle_fov1[_sidx] = list(self.angle_interp[0](tcbgaia_fov1[condition_gap1]))
 
             if n_fov2>0:
 
@@ -400,8 +411,9 @@ class dr2_sl(ScanningLaw):
                 tgaia_fov2[_sidx] = list(tcbgaia_fov2[condition_gap2])
                 b_fov2[_sidx] = list(_b[condition][n_fov1:][condition_fov2][condition_gap2])
                 nscan_fov2[_sidx] = np.sum(condition_gap2)
+                angle_fov2[_sidx] = list(self.angle_interp[1](tcbgaia_fov2[condition_gap2]))
 
-        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2
+        return tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2, angle_fov1, angle_fov2
 
     def _get_magidx(self, G):
 
@@ -458,7 +470,7 @@ class dr2_sl(ScanningLaw):
         return fraction_fov1, fraction_fov2
 
     #@ensure_flat_icrs
-    def query(self, sources, return_times=True, return_counts=True, return_fractions=False,
+    def query(self, sources, return_times=True, return_counts=True, return_fractions=False, return_angles=False,
                              return_acoffset=False, fov=12, progress=False):
         """
         Returns the scanning law at the requested coordinates.
@@ -504,8 +516,10 @@ class dr2_sl(ScanningLaw):
 
         # Evaluate selection function
         if xyz_source.shape[0]>5e6:
-              tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2 = self._scanning_law(xyz_source)
-        else: tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, b_fov1, b_fov2 = self._scanning_law_inverse(xyz_source)
+              tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, \
+              b_fov1, b_fov2, angle_fov1, angle_fov2 = self._scanning_law(xyz_source)
+        else: tgaia_fov1, tgaia_fov2, nscan_fov1, nscan_fov2, \
+              b_fov1, b_fov2, angle_fov1, angle_fov2 = self._scanning_law_inverse(xyz_source)
 
         # Extract Gaia G magnitude
         try: G = sources.photometry.measurement['gaia_g']; G_given = True
@@ -533,21 +547,26 @@ class dr2_sl(ScanningLaw):
         tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
         b_fov1 = np.array(b_fov1).reshape(coord_shape)
         b_fov2 = np.array(b_fov2).reshape(coord_shape)
+        angle_fov1 = np.array(angle_fov1).reshape(coord_shape)
+        angle_fov2 = np.array(angle_fov2).reshape(coord_shape)
         nscan_fov1 = np.array(nscan_fov1).reshape(coord_shape)
         nscan_fov2 = np.array(nscan_fov2).reshape(coord_shape)
 
         ret = {}
         if return_times: ret['times']=[]
+        if return_angles: ret['angles']=[]
         if return_counts: ret['counts']=[]
         if return_fractions: ret['fractions']=[]
         if return_acoffset: ret['acoffset']=[]
         if (fov in (1,12)):
             if return_times: ret['times'] += [tgaia_fov1,]
+            if return_angles: ret['angles'] += [angle_fov1,]
             if return_counts: ret['counts'] += [nscan_fov1,]
             if return_fractions: ret['fractions'] += [fraction_fov1,]
             if return_acoffset: ret['acoffset'] += [b_fov1,]
         if (fov in (2,12)):
             if return_times: ret['times'] += [tgaia_fov2,]
+            if return_angles: ret['angles'] += [angle_fov2,]
             if return_counts: ret['counts'] += [nscan_fov2,]
             if return_fractions: ret['fractions'] += [fraction_fov2,]
             if return_acoffset: ret['acoffset'] += [b_fov2,]
