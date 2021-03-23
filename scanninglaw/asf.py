@@ -82,7 +82,11 @@ class asf(ScanningLaw):
             #self.D_array = hf['D'][...]
 
         # R AC already implicitly included in varal_50 which is from <ngood/(P_aa + P_dd)>
-        self.rho_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, _box['good_frac_50']/_box['varal_50'])
+        _nan_mag = np.isnan(_box['good_frac_50']/_box['varal_50'])
+        # self.rho_interp = scipy.interpolate.interp1d(_box['magbin'][~_nan_mag]+0.05, (_box['good_frac_50']/_box['varal_50'])[~_nan_mag],
+        #                                              fill_value='extrapolate', bounds_error=False)
+        self.lnrho_interp = scipy.interpolate.interp1d(_box['magbin'][~_nan_mag]+0.05, np.log((_box['good_frac_50']/_box['varal_50'])[~_nan_mag]),
+                                                     fill_value='extrapolate', bounds_error=False)
         #self.sigAL_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, np.sqrt(_box['varal_50'] * (1+_box['r_50'] * (92/520)**2)))
 
         self.sp_bins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
@@ -114,8 +118,11 @@ class asf(ScanningLaw):
         for mag in self.sp_bins:
             magidx += (G>mag).astype(int)
 
-        magidx[magidx==len(self.sp_bins)-1] = -99
-        magidx[magidx==-1] = -99
+        # magidx[magidx==len(self.sp_bins)-1] = -99
+        # magidx[magidx==-1] = -99
+        magidx[magidx==len(self.sp_bins)-1] -= 1
+        magidx[magidx==-1] += 1
+
 
         return magidx
 
@@ -153,16 +160,18 @@ class asf(ScanningLaw):
         D = np.zeros(hpxidx.shape+(15,))
         with h5py.File(self.asf_fname, 'r') as hf:
             for ii in range(len(self.sp_bins)-1):
-                D[sp_idx==ii]=hf['D'][str(ii)][hpxidx[sp_idx==ii]]
+                uni_idx, uni_idx_loc = np.unique(hpxidx[sp_idx==ii], return_inverse=True)
+                D[sp_idx==ii]=hf['D'][str(ii)][uni_idx][uni_idx_loc]
 
         #D = self.D_array[hpxidx,:,sp_idx]
         precision = np.zeros(hpxidx.shape+(5,5))
         for i in range(self.matrix_map.shape[0]):
             precision[...,self.matrix_map[i,1], self.matrix_map[i,2]] = \
                     D[...,self.matrix_map[i,0]]*(8+6./7)
+        precision[...,np.arange(5),np.arange(5)] += 1e-15
 
         covariance = np.moveaxis(np.linalg.inv(precision),[-2,-1],[0,1])
-        rho = self.rho_interp(G)
+        rho = np.exp(self.lnrho_interp(G))
 
         if singular: return covariance[:,:,0]/rho
         return covariance/rho
