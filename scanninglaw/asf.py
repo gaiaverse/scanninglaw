@@ -161,7 +161,8 @@ class asf(ScanningLaw):
         with h5py.File(self.asf_fname, 'r') as hf:
             for ii in range(len(self.sp_bins)-1):
                 uni_idx, uni_idx_loc = np.unique(hpxidx[sp_idx==ii], return_inverse=True)
-                D[sp_idx==ii]=hf['D'][str(ii)][uni_idx][uni_idx_loc]
+                D_ii = hf['D'][str(ii)][...]
+                D[sp_idx==ii]=D_ii[uni_idx][uni_idx_loc]
 
         #D = self.D_array[hpxidx,:,sp_idx]
         precision = np.zeros(hpxidx.shape+(5,5))
@@ -196,7 +197,6 @@ def fetch(version='cogiv_2020', fname=None):
     """
 
     #local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
-
 
     doi = {'cogiv_2020': '10.7910/DVN/FURYBN'}
     # Raise an error if the specified version of the map does not exist
