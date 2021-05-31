@@ -12,9 +12,10 @@ Supported Scanning Laws
 
 The currently supported scanning laws are:
 
-1. Gaia DR2 scanning law (cogi_2020, Boubert, Everall & Holl 2020, MNRAS)
-2. Gaia DR2 scanning law (cog3_2020, Boubert, Everall, Fraser, Gration & Holl 2020)
-2. Gaia DR2 Astrometry Spread Function (cogiv_2020, Everall, Boubert, Koposov, Smith & Holl 2020)
+1. Gaia DR2 scanning law (cogi_2020, [Boubert, Everall & Holl 2020](https://ui.adsabs.harvard.edu/abs/2020MNRAS.497.1826B/abstract))
+2. Gaia DR2 scanning law (cog3_2020, [Boubert, Everall, Fraser, Gration & Holl 2020](https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2954B/abstract))
+3. Gaia EDR3 nominal scanning law (dr3_nominal)
+4. Gaia DR2 ASF (cogiv_2020, Everall, [Boubert, Koposov, Smith & Holl 2020](https://ui.adsabs.harvard.edu/abs/2021MNRAS.502.1908E/abstract))
 
 To request addition of another sacnning law in this package, [file an issue on
 GitHub](https://github.com/gaiaverse/scanninglaw/issues), or submit a pull request.
@@ -40,7 +41,7 @@ To fetch the data for the GaiaDR2 scanning law, run:
 
     python setup.py fetch --map-name=cog3_2020
 
-You can download the other scanning laws by changing "cog3_2020" to (other scanning laws will be added in future).
+You can download the other scanning laws by changing "cog3_2020".
 
 Alternatively, if you have used `pip` to install `scanninglaw`, then you can
 configure the data directory and download the data by opening up a python
@@ -170,9 +171,9 @@ If you make use of this software in a publication, please always cite
 
 You should also cite the papers behind the scanning laws you use.
 
-1. cogi_2020 - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020arXiv200414433B/abstract).
-2. cog3_2020 - Please cite Completeness of the Gaia-verse [Paper III](https://ui.adsabs.harvard.edu/abs/2020arXiv201110578B/abstract).
-3. cogiv_2020 (for the ASF) - Please cite Completeness of the Gaia-verse [Accepted in MNRAS, will be on arXiv soon!].
+1. cogi_2020 - Please cite Completeness of the Gaia-verse [Paper I](https://ui.adsabs.harvard.edu/abs/2020MNRAS.497.1826B/abstract).
+2. cog3_2020 - Please cite Completeness of the Gaia-verse [Paper III](https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2954B/abstract).
+3. cogiv_2020 (for the ASF) - Please cite Completeness of the Gaia-verse [Paper IV](https://ui.adsabs.harvard.edu/abs/2021MNRAS.502.1908E/abstract).
 
 Development
 -----------
