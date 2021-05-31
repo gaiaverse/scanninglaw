@@ -15,7 +15,7 @@ The currently supported scanning laws are:
 1. Gaia DR2 scanning law (cogi_2020, [Boubert, Everall & Holl 2020](https://ui.adsabs.harvard.edu/abs/2020MNRAS.497.1826B/abstract))
 2. Gaia DR2 scanning law (cog3_2020, [Boubert, Everall, Fraser, Gration & Holl 2020](https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2954B/abstract))
 3. Gaia EDR3 nominal scanning law (dr3_nominal)
-4. Gaia DR2 ASF (cogiv_2020, Everall, [Boubert, Koposov, Smith & Holl 2020](https://ui.adsabs.harvard.edu/abs/2021MNRAS.502.1908E/abstract))
+4. Gaia DR2 ASF (cogiv_2020, [Everall, Boubert, Koposov, Smith & Holl 2021](https://ui.adsabs.harvard.edu/abs/2021MNRAS.502.1908E/abstract))
 
 To request addition of another sacnning law in this package, [file an issue on
 GitHub](https://github.com/gaiaverse/scanninglaw/issues), or submit a pull request.
