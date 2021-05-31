@@ -45,7 +45,6 @@ Contents
    
    installation
    examples
-   modules
    license
 
 
