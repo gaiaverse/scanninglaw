@@ -7,8 +7,8 @@ Examples
 Getting Started
 ---------------
 
-Here, we'll find the number and times at which an object should have been scanned in Gaia DR2.
-Here wel will use the `Source` object, which has both a `SkyCoord` attribute giving the position and a `Photometry` attribute giving the photometric measurements but `SkyCoord` objects may also be directly applied.
+Here, we'll find the times at which an object should have been scanned in Gaia DR2.
+We will use the `Source` object, which has both a `SkyCoord` attribute giving the position and a `Photometry` attribute giving the photometric measurements but `SkyCoord` objects may also be directly applied.
 We specify coordinates on the sky using
 `astropy.coordinates.SkyCoord <http://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html>`_
 objects. This allows us a great deal of flexibility in how we specify sky
@@ -21,17 +21,17 @@ different units (e.g., degrees, radians,
 scalar or vector input.
 
 For our first example, let's load the
-`Boubert & Everall (2020, submitted)`
+`Boubert & Everall (2020)`
 -- or "cog_i" -- scanning law for Gaia DR2, and then query the scanning law at one location
 on the sky:
 
 .. code-block :: python
 
     from scanninglaw.source import Source
-    import scanninglaw.cog_i as cog_i
+    import scanninglaw.times as times
 
     coords = Source('12h30m25.3s', '15d15m58.1s', frame='icrs')
-    scl = cog_i.dr2_sl(version='cogi_2020')
+    scl = times.dr2_sl(version='cogi_2020')
     scans = scl(coords)
 
     print('Number of scans in: FoV1={0}, FoV2={1}'.format(scans['nscan_fov1'][0], scans['nscan_fov2'][0]))
@@ -51,7 +51,7 @@ A couple of things to note here:
 1. Above, we used the
    `ICRS coordinate system <https://en.wikipedia.org/wiki/International_Celestial_Reference_System>`_,
    by specifying :python:`frame='icrs'`.
-2. The output is in Gaia onboard time (in Julian Days)
+2. The output is in Gaia on-board time (in Julian Days)
 
 Querying Scanning Law at an Array of Coordinates
 ------------------------------------------------
@@ -63,14 +63,14 @@ We can also query an array of coordinates, as follows:
 
     import numpy as np
     from scanninglaw.source import Source
-    from scanninglaw import cog_i
+    from scanninglaw import times
 
     l = np.array([0., 90., 180.])
     b = np.array([15., 0., -15.])
 
     coords = Source(l, b, unit='deg', frame='galactic')
 
-    scl = cog_i.dr2_sl(version='cogi_2020')
+    scl = times.dr2_sl(version='cogi_2020')
     scl(coords)
     >>> {'nscan_fov1': [18, 22, 18],
          'nscan_fov2': [18, 20, 17],
@@ -97,7 +97,7 @@ We'll finish by plotting the distribution of number of scans in Gaia DR2 across 
     import astropy.units as units
 
     from scanninglaw.source import Source
-    from scanninglaw import cog_i
+    from scanninglaw import times
 
 Next, we'll set up a grid of coordinates to plot:
 
@@ -115,7 +115,7 @@ Then, we'll load up and query the Gaia DR2 scanning law:
 
 .. code-block :: python
 
-    scl = cog_i.dr2_sl(version='cogi_2020')
+    scl = times.dr2_sl(version='cogi_2020')
     scantimes = scl(coords)
 
 Finally, we create the figure using :code:`matplotlib`:

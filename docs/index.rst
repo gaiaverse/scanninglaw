@@ -3,34 +3,38 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-selectionfunctions documentation
+scanninglaw documentation
 ====================================
 
-:code:`selectionfunctions` provides a unified interface for the selection functions of several major
-astronomical surveys. This module is entirely derivative of the excellent :code:`dustmaps` package by Gregory M. Green.
-The :code:`selectionfunctions` package is a product of the `Completeness of the Gaia-verse (CoG) <https://www.gaiaverse.space/>`_ collaboration.
+The :code:`scanninglaw` package aims to provide an easy-to-use portal to the Gaia scanning law.
+astronomical surveys. The :code:`scanninglaw` package is a product of the `Completeness of the Gaia-verse (CoG) <https://www.gaiaverse.space/>`_ collaboration.
 
 To get started, take a look at :doc:`installation` and
-:doc:`examples`. To see a list of all available selection functions, take a look
-at :doc:`selectionfunctions`. For a complete reference to the API, see
+:doc:`examples`. For a complete reference to the API, see
 :doc:`modules`.
 
-If you make use of :code:`selectionfunctions` in your research, please cite
-`Green (2018) <https://doi.org/10.21105/joss.00695>`_::
+If you make use of :code:`scanninglaw` in your research, please cite
+`Everall, Boubert, Koposov, Smith & Holl (2021) <https://ui.adsabs.harvard.edu/link_gateway/2021MNRAS.502.1908E/doi:10.1093/mnras/stab041>`_::
 
-    @ARTICLE{2018JOSS....3..695M,
-           author = {{Green}, {Gregory M.}},
-            title = "{dustmaps: A Python interface for maps of interstellar dust}",
-          journal = {The Journal of Open Source Software},
-             year = "2018",
-            month = "Jun",
-           volume = {3},
-           number = {26},
-            pages = {695},
-              doi = {10.21105/joss.00695},
-           adsurl = {https://ui.adsabs.harvard.edu/abs/2018JOSS....3..695M},
-          adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-    }
+    @ARTICLE{2021MNRAS.502.1908E,
+             author = {{Everall}, Andrew and {Boubert}, Douglas and {Koposov}, Sergey E. and {Smith}, Leigh and {Holl}, Berry},
+              title = "{Completeness of the Gaia-verse - IV. The astrometry spread function of Gaia DR2}",
+            journal = {\mnras},
+           keywords = {methods: data analysis, methods: statistical, stars: statistics, Galaxy: kinematics and dynamics, Galaxy: stellar content, Astrophysics - Astrophysics of Galaxies, Astrophysics - Instrumentation and Methods for Astrophysics, Astrophysics - Solar and Stellar Astrophysics},
+               year = 2021,
+              month = apr,
+             volume = {502},
+             number = {2},
+              pages = {1908-1924},
+                doi = {10.1093/mnras/stab041},
+      archivePrefix = {arXiv},
+             eprint = {2101.01723},
+       primaryClass = {astro-ph.GA},
+             adsurl = {https://ui.adsabs.harvard.edu/abs/2021MNRAS.502.1908E},
+            adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+      }
+
+
 
 
 Contents
@@ -41,8 +45,6 @@ Contents
    
    installation
    examples
-   selectionfunctions
-   modules
    license
 
 
