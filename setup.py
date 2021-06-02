@@ -92,12 +92,12 @@ def readme():
 
 setup(
     name='scanninglaw',
-    version='0.2.0',
-    description='Uniform interface for the selection functions of astronomical surveys.',
+    version='1.0.0',
+    description='Easy-to-use portal to the Gaia scanning law.',
     long_description=readme(),
     long_description_content_type='text/markdown',
-    url='https://github.com/gaiaverse/selectionfunctions',
-    download_url='https://github.com/gaiaverse/selectionfunctions/archive/v0.2.0.tar.gz',
+    url='https://github.com/gaiaverse/scanninglaw',
+    download_url='https://github.com/gaiaverse/scanninglaw/archive/v1.0.0.tar.gz',
     author='Douglas Boubert',
     author_email='douglasboubert@gmail.com',
     license='GPLv2',
