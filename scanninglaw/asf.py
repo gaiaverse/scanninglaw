@@ -43,6 +43,12 @@ from . import fetch_utils
 from time import time
 
 
+version_filenames = {
+        'cogiv_2020': {'filename': 'cog_dr2_asf_v1.h5'},
+        'dr3_nominal': {'filename': 'cog_edr3_asf_nominal.h5'}
+    }
+
+
 class asf(ScanningLaw):
     """
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
@@ -65,7 +71,7 @@ class asf(ScanningLaw):
 
         if version=='cog': version='cogiv_2020'
         if map_fname is None:
-            map_fname = os.path.join(data_dir(), 'cog', '{}'.format('cog_dr2_asf_v1.h5'))
+            map_fname = os.path.join(data_dir(), 'cog', '{}'.format(version_filenames[version]['filename']))
 
         self.asf_fname = os.path.join(data_dir(), 'cog', map_fname)
 
@@ -89,8 +95,12 @@ class asf(ScanningLaw):
                                                      fill_value='extrapolate', bounds_error=False)
         #self.sigAL_interp = scipy.interpolate.interp1d(_box['magbin']+0.05, np.sqrt(_box['varal_50'] * (1+_box['r_50'] * (92/520)**2)))
 
-        self.sp_bins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
-                                 20, 20.3, 20.4, 20.5, 20.6, 20.7,20.8,20.9, 21])
+        if version=='dr3_nominal':
+            # DR3 nominal ASF not split into star packet bins
+            self.sp_bins = np.array([0,1])
+        else:
+            self.sp_bins = np.array([5, 13,  16, 16.3, 17, 17.2, 18, 18.1, 19, 19.05, 19.95,
+                                     20, 20.3, 20.4, 20.5, 20.6, 20.7,20.8,20.9, 21])
 
         t_auxilliary = time()
 
@@ -198,7 +208,8 @@ def fetch(version='cogiv_2020', fname=None):
 
     #local_fname = os.path.join(data_dir(), 'cog', '{}.csv.gz'.format(version))
 
-    doi = {'cogiv_2020': '10.7910/DVN/FURYBN'}
+    doi = {'cogiv_2020': '10.7910/DVN/FURYBN',
+           'dr3_nominal': '10.7910/DVN/HLZGDH'}
     # Raise an error if the specified version of the map does not exist
     try:
         doi = doi[version]
@@ -208,9 +219,7 @@ def fetch(version='cogiv_2020', fname=None):
             ', '.join(['"{}"'.format(k) for k in doi.keys()])
         ))
 
-    requirements = {
-        'cogiv_2020': {'filename': 'cog_dr2_asf_v1.h5'},
-    }[version]
+    requirements = version_filenames[version]
     local_fname = os.path.join(data_dir(), 'cog', requirements['filename'])
 
     # Download the data
