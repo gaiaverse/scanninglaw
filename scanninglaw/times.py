@@ -69,7 +69,7 @@ version_trange = {
 
 
 
-class dr2_sl(ScanningLaw):
+class Times(ScanningLaw):
     """
     Queries the Gaia DR2 selection function (Boubert & Everall, 2019).
     """
@@ -540,17 +540,17 @@ class dr2_sl(ScanningLaw):
             # tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
             # b_fov1 = np.array(b_fov1).reshape(coord_shape)
             # b_fov2 = np.array(b_fov2).reshape(coord_shape)
-            fraction_fov1 = np.array(fraction_fov1).reshape(coord_shape)
-            fraction_fov2 = np.array(fraction_fov2).reshape(coord_shape)
+            fraction_fov1 = np.array(fraction_fov1,dtype=object).reshape(coord_shape)
+            fraction_fov2 = np.array(fraction_fov2,dtype=object).reshape(coord_shape)
 
-        tgaia_fov1 = np.array(tgaia_fov1).reshape(coord_shape)
-        tgaia_fov2 = np.array(tgaia_fov2).reshape(coord_shape)
-        b_fov1 = np.array(b_fov1).reshape(coord_shape)
-        b_fov2 = np.array(b_fov2).reshape(coord_shape)
-        angle_fov1 = np.array(angle_fov1).reshape(coord_shape)
-        angle_fov2 = np.array(angle_fov2).reshape(coord_shape)
-        nscan_fov1 = np.array(nscan_fov1).reshape(coord_shape)
-        nscan_fov2 = np.array(nscan_fov2).reshape(coord_shape)
+        tgaia_fov1 = np.array(tgaia_fov1,dtype=object).reshape(coord_shape)
+        tgaia_fov2 = np.array(tgaia_fov2,dtype=object).reshape(coord_shape)
+        b_fov1 = np.array(b_fov1,dtype=object).reshape(coord_shape)
+        b_fov2 = np.array(b_fov2,dtype=object).reshape(coord_shape)
+        angle_fov1 = np.array(angle_fov1,dtype=object).reshape(coord_shape)
+        angle_fov2 = np.array(angle_fov2,dtype=object).reshape(coord_shape)
+        nscan_fov1 = np.array(nscan_fov1,dtype=object).reshape(coord_shape)
+        nscan_fov2 = np.array(nscan_fov2,dtype=object).reshape(coord_shape)
 
         ret = {}
         if return_times: ret['times']=[]

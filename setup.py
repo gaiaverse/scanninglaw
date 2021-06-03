@@ -92,12 +92,12 @@ def readme():
 
 setup(
     name='scanninglaw',
-    version='1.1.0',
+    version='1.1.1',
     description='Easy-to-use portal to the Gaia scanning law.',
     long_description=readme(),
     long_description_content_type='text/markdown',
     url='https://github.com/gaiaverse/scanninglaw',
-    download_url='https://github.com/gaiaverse/scanninglaw/archive/v1.1.0.tar.gz',
+    download_url='https://github.com/gaiaverse/scanninglaw/archive/v1.1.1.tar.gz',
     author='Douglas Boubert',
     author_email='douglasboubert@gmail.com',
     license='GPLv2',
